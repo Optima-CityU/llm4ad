@@ -4,6 +4,7 @@
 # weight: int: 10
 # timeout_seconds: int: 20
 # end
+from __future__ import annotations
 
 import itertools
 from typing import Any, List, Tuple

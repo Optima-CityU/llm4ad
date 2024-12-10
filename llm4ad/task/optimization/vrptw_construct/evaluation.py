@@ -2,12 +2,7 @@
 # Parameters: 
 # timeout_seconds: int: 20
 # end
-
-import os
-import sys
-if __name__ == "__main__":
-    sys.path.append(os.path.abspath('../../../../'))  # This is for finding all the modules
-
+from __future__ import annotations
 
 from typing import Any
 import copy

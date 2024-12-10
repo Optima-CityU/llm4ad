@@ -2,6 +2,7 @@
 # Parameters:
 # max_steps: int: 500
 # end
+from __future__ import annotations
 
 from typing import Any
 import gym

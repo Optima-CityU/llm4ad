@@ -2,6 +2,7 @@
 # Parameters:
 # timeout_seconds: int: 20
 # end
+from __future__ import annotations
 
 from typing import Any
 import numpy as np

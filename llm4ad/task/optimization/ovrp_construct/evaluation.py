@@ -2,16 +2,9 @@
 # Parameters: 
 # timeout_seconds: int: 20
 # end
+from __future__ import annotations
 
-if __name__ == "__main__":
-
-    import sys
-    sys.path.append('../../')  # This is for finding all the modules
-    sys.path.append("./")
-
-import os
 import copy
-import pickle
 from typing import Any
 
 import numpy as np

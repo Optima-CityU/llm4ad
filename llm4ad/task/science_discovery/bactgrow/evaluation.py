@@ -2,8 +2,8 @@
 # Parameters:
 # timeout_seconds: int: 20
 # end
+from __future__ import annotations
 
-import os
 from typing import Any
 import pandas as pd
 import numpy as np

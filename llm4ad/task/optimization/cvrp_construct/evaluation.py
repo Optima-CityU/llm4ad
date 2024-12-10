@@ -2,9 +2,8 @@
 # Parameters: 
 # timeout_seconds: int: 20
 # end
+from __future__ import annotations
 
-import os
-import sys
 import copy
 from typing import Any
 

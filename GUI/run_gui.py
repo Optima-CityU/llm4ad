@@ -198,7 +198,7 @@ def get_required_parameters(path):
     value_type = []
     default_value = []
 
-    for line in open(path, "r").readlines():
+    for line in open(path, "r",encoding="utf-8").readlines():
         if line == '# end\n' or line[0] != '#':
             break
         if line[:13] == '# Parameters:':
