@@ -23,15 +23,18 @@ class ProfilerBase:
                  method_name="Method",
                  initial_num_samples=0,
                  log_style='complex',
+                 num_objs=1,
                  **kwargs):
 
         assert log_style in ['simple', 'complex']
+        self._num_objs = num_objs
+
         self.__class__._num_samples = initial_num_samples
         self._log_dir = log_dir
         self._log_style = log_style
-        self._cur_best_function = None
-        self._cur_best_program_sample_order = None
-        self._cur_best_program_score = float('-inf')
+        self._cur_best_function = None if self._num_objs < 2 else [None for _ in range(self._num_objs)]
+        self._cur_best_program_sample_order = None if self._num_objs < 2 else [None for _ in range(self._num_objs)]
+        self._cur_best_program_score = float('-inf') if self._num_objs < 2 else [float('-inf') for _ in range(self._num_objs)]
         self._evaluate_success_program_num = 0
         self._evaluate_failed_program_num = 0
         self._tot_sample_time = 0
@@ -57,13 +60,23 @@ class ProfilerBase:
     def register_function(self, function: Function, *, resume_mode=False):
         """Record an obtained function. This is a synchronized function.
         """
-        try:
-            self._register_function_lock.acquire()
-            self.__class__._num_samples += 1
-            self._record_and_verbose(function, resume_mode=resume_mode)
-            self._write_json(function)
-        finally:
-            self._register_function_lock.release()
+        if self._num_objs < 2:
+            try:
+                self._register_function_lock.acquire()
+                self.__class__._num_samples += 1
+                self._record_and_verbose(function, resume_mode=resume_mode)
+                self._write_json(function)
+            finally:
+                self._register_function_lock.release()
+        else:
+            try:
+                self._register_function_lock.acquire()
+                self.__class__._num_samples += 1
+                self._record_and_verbose(function, resume_mode=resume_mode)
+                self._write_json(function)
+            finally:
+                self._register_function_lock.release()
+
 
     def finish(self):
         pass
@@ -122,11 +135,20 @@ class ProfilerBase:
         score = function.score
 
         # update best function
-        if score is not None and score > self._cur_best_program_score:
-            self._cur_best_function = function
-            self._cur_best_program_score = score
-            self._cur_best_program_sample_order = self.__class__._num_samples
-            self._write_json(function, record_type='best')
+        if self._num_objs < 2:
+            if score is not None and score > self._cur_best_program_score:
+                self._cur_best_function = function
+                self._cur_best_program_score = score
+                self._cur_best_program_sample_order = self.__class__._num_samples
+                self._write_json(function, record_type='best')
+        else:
+            if score is not None:
+                for i in range(self._num_objs):
+                    if score[i] > self._cur_best_program_score[i]:
+                        self._cur_best_function[i] = function
+                        self._cur_best_program_score[i] = score[i]
+                        self._cur_best_program_sample_order[i] = self.__class__._num_samples
+                        self._write_json(function, record_type='best')
 
         if not resume_mode:
             # log attributes of the function
@@ -145,7 +167,10 @@ class ProfilerBase:
                 if score is None:
                     print(f'Sample{self.__class__._num_samples}: Score=None    Cur_Best_Score={self._cur_best_program_score: .3f}')
                 else:
-                    print(f'Sample{self.__class__._num_samples}: Score={score: .3f}     Cur_Best_Score={self._cur_best_program_score: .3f}')
+                    if self._num_objs < 2:
+                        print(f'Sample{self.__class__._num_samples}: Score={score: .3f}     Cur_Best_Score={self._cur_best_program_score: .3f}')
+                    else: # TODO: MEoH: only support 2 objs
+                        print(f'Sample{self.__class__._num_samples}: Score=[{score[0]: .3f}, {score[1]: .3f}]     Cur_Best_Score=[{self._cur_best_program_score[0]: .3f}, {self._cur_best_program_score[1]: .3f}]')
 
         # update statistics about function
         if score is not None:
