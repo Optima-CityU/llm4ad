@@ -1,0 +1,6 @@
+numpy<2.0.0
+torch
+tensorboard
+wandb
+numba
+scipy

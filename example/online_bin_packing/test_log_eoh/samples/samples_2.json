@@ -1,0 +1,1 @@
+{"sample_order": 2, "function": "def fake_func() -> int:\n    \"\"\"Returns a integer.\"\"\"\n    return 99\n\n", "score": 99}
