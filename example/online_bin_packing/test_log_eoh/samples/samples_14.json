@@ -1,1 +1,0 @@
-{"sample_order": 14, "function": "def fake_func() -> int:\n    \"\"\"Returns a integer.\"\"\"\n    for i in range(99, -1, -1):\n        if i < 100:\n            return i\n\n", "score": 99}

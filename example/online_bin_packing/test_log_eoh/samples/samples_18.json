@@ -1,1 +1,0 @@
-{"sample_order": 18, "function": "def fake_func() -> int:\n    \"\"\"Returns a integer.\"\"\"\n    values = [i for i in range(100)]\n    return max(values)\n\n", "score": 99}

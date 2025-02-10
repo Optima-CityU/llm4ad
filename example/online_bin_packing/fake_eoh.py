@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import sys
+
+sys.path.append('../../')
+
 import logging
 import pickle
 import random
@@ -93,8 +97,8 @@ You can input task descriptions to EoH, to let LLM better understanding their ta
 if __name__ == '__main__':
     sampler = FakeSampler()
     evaluator = OBPEvaluator()
-    # profiler = EoHTensorboardProfiler(log_dir='logs/eoh_run1')
-    profiler = ProfilerBase(log_dir='logs/eoh_run1')
+    profiler = EoHTensorboardProfiler(log_dir='logs/eoh_run1')
+    # profiler = ProfilerBase(log_dir='logs/eoh_run1')
     config = EoHConfig(pop_size=2)
     eoh = EoH(
         task_description=task_description,
