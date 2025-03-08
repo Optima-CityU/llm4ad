@@ -31,6 +31,7 @@ import copy
 import time
 import traceback
 from threading import Thread
+from typing import Literal, Optional
 
 from .profiler import HillClimbProfiler
 from ...base import *
@@ -41,16 +42,15 @@ class HillClimb:
                  llm: LLM,
                  evaluation: Evaluation,
                  profiler: HillClimbProfiler = None,
-                 max_sample_nums: int | None = 20,
+                 max_sample_nums: Optional[int] = 20,
                  num_samplers: int = 4,
                  num_evaluators: int = 4,
                  *,
                  resume_mode: bool = False,
-                 initial_sample_num: int | None = None,
                  debug_mode: bool = False,
-                 multi_thread_or_process_eval: str = 'thread',
+                 multi_thread_or_process_eval: Literal['thread', 'process'] = 'thread',
                  **kwargs):
-        """
+        """Hill Climbing Search.
         Args:
             template_program: the seed program (in str) as the initial function of the run.
                 the template_program should be executable, i.e., incorporating package import, and function definition, and function body.
@@ -87,11 +87,12 @@ class HillClimb:
         llm.debug_mode = debug_mode
         self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
+
         if profiler is not None:
             self._profiler.record_parameters(llm, evaluation, self)  # ZL: Necessary
 
         # statistics
-        self._tot_sample_nums = 0 if initial_sample_num is None else initial_sample_num
+        self._tot_sample_nums = 0
         self._best_function_found = self._function_to_evolve  # set to the template function at the beginning
 
         # multi-thread executor for evaluation

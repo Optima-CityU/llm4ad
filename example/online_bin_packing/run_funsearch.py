@@ -10,12 +10,11 @@ from llm4ad.method.funsearch import FunSearch
 from llm4ad.tools.profiler import ProfilerBase
 
 if __name__ == '__main__':
+    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                   model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
+                   timeout=60)
 
-    llm = HttpsApi(host="xxx",  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key="sk-xxx",  # your key, e.g., sk-abcdefghijklmn
-                   model="xxx",  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
-                   timeout=20)
-    
     task = OBPEvaluation()
 
     method = FunSearch(

@@ -22,22 +22,23 @@ from setuptools import setup, find_packages
 setup(
     name='llm4ad',
     version='1.0',
-    author='LLM4AD Team',
+    author='LLM4AD Developers',
     description='Large Language Model for Algorithm Design Platform ',
-    packages=find_packages(),  
-    package_dir={'': '.'}, 
-    python_requires='>=3.9,<=3.11',
+    packages=find_packages(),
+    package_dir={'': '.'},
+    python_requires='>=3.9',
     install_requires=[
         'numpy<2',
-        'tensorboard',
+        'torch',
+        'tensorboardX',
         'scipy',
         'tqdm',
+        'numba',
         'requests',
         'openai',
         'pytz',
         'matplotlib',
         'python-docx',
-        'gym',
         'ttkbootstrap'
     ]
 )

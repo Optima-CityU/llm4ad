@@ -4,4 +4,4 @@ from . import task
 from .tools import profiler
 from .tools import llm
 
-__version__ = '0.1.0'
+__version__ = '1.0.0'

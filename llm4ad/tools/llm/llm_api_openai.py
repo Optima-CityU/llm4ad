@@ -6,7 +6,7 @@ from typing import Any
 from llm4ad.base import LLM
 
 
-class HttpsApiOpenAI(LLM):
+class OpenAIAPI(LLM):
     def __init__(self, base_url: str, api_key: str, model: str, timeout=30, **kwargs):
         super().__init__()
         self._model = model

@@ -37,7 +37,7 @@ if __name__ == '__main__':
         profiler=EoHProfiler(log_dir='logs/eoh', log_style='simple'),
         evaluation=task,
         max_sample_nums=10,
-        max_generations=10,
+        max_generations=0,
         pop_size=2,
         num_samplers=1,
         num_evaluators=1,

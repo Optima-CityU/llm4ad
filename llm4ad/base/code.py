@@ -57,6 +57,7 @@ from typing import Any, List, Callable
 class Function:
     """A parsed Python function."""
 
+    algorithm = ''
     name: str
     args: str
     body: str

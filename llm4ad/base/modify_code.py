@@ -178,7 +178,7 @@ def _protected_div(x, y, delta={delta}):
                             attr='seed',
                             ctx=ast.Load()
                         ),
-                        args=[ast.Num(n=seed)],
+                        args=[ast.Constant(value=seed)],
                         keywords=[]
                     )
                 )

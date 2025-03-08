@@ -11,10 +11,10 @@ from llm4ad.method.eoh import EoH, EoHProfiler
 
 
 def main():
-    llm = HttpsApi(host="xxx",  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key="sk-xxx",  # your key, e.g., sk-abcdefghijklmn
-                   model="xxx",  # your llm, e.g., gpt-3.5-turbo,
-                   timeout=20)
+    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                   model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
+                   timeout=60)
 
     task = CVRPEvaluation()
 

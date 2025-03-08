@@ -1,0 +1,11 @@
+Sphinx
+sphinx-autobuild
+sphinx-book-theme
+recommonmark
+sphinx_markdown_tables
+myst-parser
+nbsphinx
+ipython
+pandoc
+# py-pandoc
+# conda install pandoc

@@ -4,7 +4,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 try:
     import wandb
@@ -20,18 +20,29 @@ class EoHProfiler(ProfilerBase):
     _cur_gen = 0
 
     def __init__(self,
-                 log_dir: str | None = None,
+                 log_dir: Optional[str] = None,
+                 *,
                  evaluation_name='Problem',
                  method_name='EoH',
-                 *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=False,
                  **kwargs):
+        """EoH Profiler
+        Args:
+            log_dir            : the directory of current run
+            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
+            method_name        : the name of the search method.
+            initial_num_samples: the sample order start with `initial_num_samples`.
+            create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
+        """
         super().__init__(evaluation_name=evaluation_name,
                          method_name=method_name,
                          log_dir=log_dir,
                          initial_num_samples=initial_num_samples,
-                         log_style=log_style, **kwargs)
+                         log_style=log_style,
+                         create_random_path=create_random_path,
+                         **kwargs)
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
@@ -61,13 +72,11 @@ class EoHProfiler(ProfilerBase):
                 self._pop_lock.release()
 
     def _write_json(self, function: Function, *, record_type='history', record_sep=200):
-        """
-            Write function data to a JSON file.
-
-            Parameters:
-                function (Function): The function object containing score and string representation.
-                record_type (str, optional): Type of record, 'history' or 'best'. Defaults to 'history'.
-                record_sep (int, optional): Separator for history records. Defaults to 200.
+        """Write function data to a JSON file.
+        Args:
+            function   : The function object containing score and string representation.
+            record_type: Type of record, 'history' or 'best'. Defaults to 'history'.
+            record_sep : Separator for history records. Defaults to 200.
         """
         assert record_type in ['history', 'best']
 
@@ -107,14 +116,39 @@ class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
 
     def __init__(self,
                  log_dir: str | None = None,
+                 *,
                  evaluation_name='Problem',
                  method_name='EoH',
-                 *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=False,
                  **kwargs):
-        EoHProfiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, **kwargs)
-        TensorboardProfiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, initial_num_samples=initial_num_samples, log_style=log_style, **kwargs)
+        """EoH Profiler for Tensorboard.
+        Args:
+            log_dir            : the directory of current run
+            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
+            method_name        : the name of the search method.
+            initial_num_samples: the sample order start with `initial_num_samples`.
+            create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
+            **kwargs           : kwargs for wandb
+        """
+        EoHProfiler.__init__(
+            self, log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            create_random_path=create_random_path,
+            method_name=method_name,
+            **kwargs
+        )
+        TensorboardProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            method_name=method_name,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
 
     def finish(self):
         if self._log_dir:
@@ -133,20 +167,42 @@ class EoHWandbProfiler(WandBProfiler, EoHProfiler):
     def __init__(self,
                  wandb_project_name: str,
                  log_dir: str | None = None,
-                 evaluation_name="Problem",
-                 method_name="EoH",
                  *,
+                 evaluation_name='Problem',
+                 method_name='EoH',
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=False,
                  **kwargs):
-        EoHProfiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, **kwargs)
-        WandBProfiler.__init__(self,
-                               wandb_project_name=wandb_project_name,
-                               log_dir=log_dir,
-                               evaluation_name=evaluation_name,
-                               method_name=method_name,
-                               initial_num_samples=initial_num_samples,
-                               log_style=log_style, **kwargs)
+        """EoH Profiler for Wandb.
+        Args:
+            wandb_project_name : the name of the wandb project
+            log_dir            : the directory of current run
+            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
+            method_name        : the name of the search method.
+            initial_num_samples: the sample order start with `initial_num_samples`.
+            create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
+            **kwargs           : kwargs for wandb
+        """
+        EoHProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            create_random_path=create_random_path,
+            method_name=method_name,
+            **kwargs
+        )
+        WandBProfiler.__init__(
+            self,
+            wandb_project_name=wandb_project_name,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            method_name=method_name,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')

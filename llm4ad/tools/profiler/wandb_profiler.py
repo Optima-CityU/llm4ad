@@ -19,10 +19,8 @@
 
 from __future__ import annotations
 
-import json
-import os
 import sys
-from threading import Lock
+from typing import Optional
 
 from llm4ad.base import Function
 from llm4ad.tools.profiler.profile import ProfilerBase
@@ -34,29 +32,32 @@ except:
 
 
 class WandBProfiler(ProfilerBase):
-    # _num_samples = 0
 
     def __init__(self,
                  wandb_project_name: str,
-                 log_dir: str | None = None,
+                 log_dir: Optional[str] = None,
+                 *,
                  evaluation_name='Problem',
                  method_name='Method',
-                 *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=False,
                  **wandb_init_kwargs):
         """
         Args:
             wandb_project_name : the project name in which you sync your results.
-            log_dir            : folder path for tensorboard log files.
-            wandb_init_kwargs  : args used to init wandb project, such as name='funsearch_run1', group='funsearch'.
-            log_style          : the output style in the terminal. Option in ['complex', 'simple'].
+            log_dir            : the directory of current run
+            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
+            method_name        : the name of the search method.
+            initial_num_samples: the sample order start with `initial_num_samples`.
+            create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
         """
         super().__init__(log_dir=log_dir,
                          evaluation_name=evaluation_name,
                          method_name=method_name,
                          initial_num_samples=initial_num_samples,
                          log_style=log_style,
+                         create_random_path=create_random_path,
                          **wandb_init_kwargs)
 
         self._wandb_project_name = wandb_project_name
@@ -87,7 +88,7 @@ class WandBProfiler(ProfilerBase):
         try:
             self._register_function_lock.acquire()
             self.__class__._num_samples += 1
-            self._record_and_verbose(function, resume_mode=resume_mode)
+            self._record_and_print_verbose(function, resume_mode=resume_mode)
             self._write_wandb()
             self._write_json(function)
         finally:
