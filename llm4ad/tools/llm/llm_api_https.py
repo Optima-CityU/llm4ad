@@ -83,3 +83,34 @@ class HttpsApi(LLM):
                           f'You may check your API host and API key.')
                     time.sleep(2)
                 continue
+
+    def draw_embedding(self, text: str, *args, **kwargs) -> str:
+        content_for_embedding = {'input': text, 'model': self._model}
+
+        retry = 0
+        while True:
+            try:
+                conn = http.client.HTTPSConnection(self._host, timeout=self._timeout)
+                payload = json.dumps(content_for_embedding)
+                headers = {
+                    'Authorization': f'Bearer {self._key}',
+                    'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                    'Content-Type': 'application/json'
+                }
+                conn.request('POST', "/v1/embeddings", payload, headers)
+                res = conn.getresponse()
+                data = res.read().decode('utf-8')
+                data = json.loads(data)
+                response = data['data'][0]['embedding']
+                return response
+            except Exception as e:
+                self._cumulative_error += 1
+                if self.debug_mode:
+                    if self._cumulative_error == 10:
+                        raise RuntimeError(f'{self.__class__.__name__} error: {traceback.format_exc()}.'
+                                           f'You may check your API host and API key.')
+                else:
+                    print(f'{self.__class__.__name__} error: {traceback.format_exc()}.'
+                          f'You may check your API host and API key.')
+                    time.sleep(2)
+                continue

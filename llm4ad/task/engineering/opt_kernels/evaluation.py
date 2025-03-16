@@ -23,21 +23,20 @@ from __future__ import annotations
 from typing import Any
 
 from llm4ad.base import Evaluation
-from llm4ad.task.machine_learning.acrobot.template import template_program, task_description
+from .template import template_program, task_description
 
 __all__ = ['KernelEvaluation']
 
 class KernelEvaluation(Evaluation):
     """Evaluator for car mountain problem."""
 
-    def __init__(self, max_steps=500, timeout_seconds=20, **kwargs):
+    def __init__(self, temp_dir, timeout_seconds=300, **kwargs):
         """
             Args:
-                - 'max_steps' (int): Maximum number of steps allowed per episode in the MountainCar-v0 environment (default is 500).
-                - '**kwargs' (dict): Additional keyword arguments passed to the parent class initializer.
+                - 'temp_dir' #TODO: Add description
 
             Attributes:
-                - 'env' (gym.Env): The MountainCar-v0 environment with a modified maximum episode length.
+
         """
 
         super().__init__(
@@ -47,8 +46,7 @@ class KernelEvaluation(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        self.env = None
-        self.env._max_episode_steps = max_steps
+        self.temp_dir = temp_dir
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         pass
