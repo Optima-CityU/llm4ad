@@ -13,6 +13,8 @@ class OpenAIAPI(LLM):
         self._client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=timeout, **kwargs)
 
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
+        if isinstance(prompt, str):
+            prompt = [{'role': 'user', 'content': prompt}]
         response = self._client.chat.completions.create(
             model=self._model,
             messages=prompt,
