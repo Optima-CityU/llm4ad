@@ -22,7 +22,7 @@ class FuncCodeVerify(CodeVerify):
         torch.cuda.set_device(device)
 
         time_stamp = time.strftime("%Y%m%d-%H%M%S")
-        temp_dir = tempfile.TemporaryDirectory(dir=self.res_path, prefix=f"{time_stamp}_")
+        temp_dir = tempfile.TemporaryDirectory(dir=self.res_path, prefix=f"{time_stamp}_", delete=False)
         os.makedirs(temp_dir.name, exist_ok=True)
         org_code_path = os.path.join(temp_dir.name, "original.py")
         func_code_path = os.path.join(temp_dir.name, "func.py")

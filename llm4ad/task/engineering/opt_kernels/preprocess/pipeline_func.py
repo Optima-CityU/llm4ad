@@ -1,6 +1,8 @@
 import torch
 from .func_code_output import FuncCodeOutput
 from .func_code_verify import FuncCodeVerify
+from .cuda_code_output import CudaCodeOutput
+from .cuda_code_verify import CudaCodeVerify
 
 from llm4ad.tools.llm.llm_api_https import HttpsApi
 
@@ -12,7 +14,7 @@ def graceful_eval_cleanup(device: torch.device):
 
 def convert_to_functional_code(llm_for_convert: HttpsApi, args, retry: int = 50) -> tuple[bool, str]:
     func_converter = FuncCodeOutput(llm_for_convert)
-    func_verifier = FuncCodeVerify(res_path=args.res_path)
+    func_verifier = FuncCodeVerify(res_path=args.res_path, keep_temp=args.keep_temp)
 
     convert_success = False
     func_code = None
@@ -25,8 +27,25 @@ def convert_to_functional_code(llm_for_convert: HttpsApi, args, retry: int = 50)
         if convert_success:
             return convert_success, func_code
         convert_retry += 1
+        print("Conversion failed, retrying...")
         if convert_retry >= retry:
             return convert_success, func_code
-    #     if not convert_success:
-    #         print("Conversion failed, retrying...")
-    # print("Conversion successful!")
+
+def translate_into_CUDA_kernel(llm_for_translate: HttpsApi, args, retry: int = 50) -> tuple[bool, str]:
+    cuda_translator = CudaCodeOutput(llm_for_translate)
+    cuda_verifier = CudaCodeVerify(res_path=args.res_path, keep_temp=args.keep_temp)
+
+    translate_success = False
+    cuda_code = None
+    error_message = None
+    translate_retry = 0
+    while not translate_success:
+        cuda_code = cuda_translator.get_code(args.func_code, cuda_code, error_message)
+        translate_success, error_message = cuda_verifier.evaluate_cuda_code(args.code_content, args.func_code, cuda_code, args.code_operation, args.device)
+        graceful_eval_cleanup(args.device)
+        if translate_success:
+            return translate_success, cuda_code
+        translate_retry += 1
+        print("Translation failed, retrying...")
+        if translate_retry >= retry:
+            return translate_success, cuda_code

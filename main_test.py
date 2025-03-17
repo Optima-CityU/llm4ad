@@ -4,7 +4,8 @@ import json
 import argparse
 
 from llm4ad.task.engineering.opt_kernels import KernelEvaluation
-from llm4ad.task.engineering.opt_kernels.preprocess.pipeline_func import convert_to_functional_code
+from llm4ad.task.engineering.opt_kernels.preprocess.pipeline_func import convert_to_functional_code, translate_into_CUDA_kernel
+
 
 from llm4ad.tools.llm.llm_api_https import HttpsApi
 from llm4ad.method.eoh import EoH, EoHProfiler
@@ -36,11 +37,19 @@ def main(args):
     }
 
     # llm_for_func_convert = HttpsApi(model="o1-preview-2024-09-12", **config_dict)
-    llm_for_func_convert = HttpsApi(model="gpt-3.5-turbo", **config_dict)
+    # 1. Convert the code to functional code
+    llm_for_func_convert = HttpsApi(model="gpt-4o", **config_dict)
     convert_success, func_code = convert_to_functional_code(llm_for_func_convert, args, retry=100)
     if not convert_success:
         print("Conversion failed!")
         return
+    else:
+        print("Conversion successful!")
+
+    # 2. Translate functional code to CUDA Kernel
+    args.func_code = func_code
+    res, cuda_code = translate_into_CUDA_kernel(llm_for_func_convert, args, retry=100)
+    a = 1
 
 
     # o1_preview = HttpsApi(model="o1-preview-2024-09-12", **config_dict)
