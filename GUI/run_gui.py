@@ -35,8 +35,14 @@ stop_thread = False
 have_stop_thread = False
 
 method_para_entry_list = []
+batch_para_entry_list = []
 method_para_value_type_list = []
 method_para_value_name_list = []
+batch_method_para = {}
+batch_problem_para = {}
+
+batch_last_para_type = 0
+batch_last_para_name = None
 
 problem_listbox = None
 default_problem_index = None
@@ -133,11 +139,11 @@ def open_folder():
 
 ##########################################################
 
-# todo 2
 def add_algorithm():
     global algo_listbox2
     global selected_algorithms_list
     global real_algo_listbox2
+    global batch_method_para
 
     selected = algo_listbox2.curselection()
     if not selected:
@@ -147,10 +153,19 @@ def add_algorithm():
     if algo_name not in selected_algorithms_list:
         real_algo_listbox2.insert(tk.END, algo_name)
         selected_algorithms_list.append(algo_name)
+        required_parameters, value_type, default_value = get_required_parameters(
+            path=f"../llm4ad/method/{algo_name}/paras.yaml")
+
+        batch_method_para[algo_name] = {
+            'name': required_parameters,
+            'type': value_type,
+            'value': [tk.StringVar(value=value) for value in default_value]
+        }
 
 def remove_algorithm():
     global selected_algorithms_list
     global real_algo_listbox2
+    global batch_method_para
 
     selected = real_algo_listbox2.curselection()
     if not selected:
@@ -159,24 +174,36 @@ def remove_algorithm():
     algo_name = real_algo_listbox2.get(selected[0])
     selected_algorithms_list.remove(algo_name)
     real_algo_listbox2.delete(selected[0])
+    batch_method_para.pop(algo_name)
 
 def add_problem():
     global problem_listbox2
     global selected_problems_list
     global real_prob_listbox2
+    global batch_problem_para
 
     selected = problem_listbox2.curselection()
     if not selected:
         return
 
     prob_name = problem_listbox2.get(selected[0])
+    prob_type = objectives_var2.get()
+    prob_name = '{}/{}'.format(prob_type,prob_name)
     if prob_name not in selected_problems_list:
         real_prob_listbox2.insert(tk.END, prob_name)
         selected_problems_list.append(prob_name)
+        required_parameters, value_type, default_value = get_required_parameters(
+            path=f"../llm4ad/task/{prob_name}/paras.yaml")
+        batch_problem_para[prob_name] = {
+            'name': required_parameters,
+            'type': value_type,
+            'value': [tk.StringVar(value=value) for value in default_value]
+        }
 
 def remove_problem():
     global selected_problems_list
     global real_prob_listbox2
+    global batch_problem_para
 
     selected = real_prob_listbox2.curselection()
     if not selected:
@@ -185,7 +212,111 @@ def remove_problem():
     prob_name = real_prob_listbox2.get(selected[0])
     selected_problems_list.remove(prob_name)
     real_prob_listbox2.delete(selected[0])
+    batch_problem_para.pop(prob_name)
 
+############################
+
+def batch_on_algo_select(event):
+    if real_algo_listbox2.curselection():
+        selected_algo = real_algo_listbox2.get(real_algo_listbox2.curselection())
+        batch_show_algorithm_parameters(selected_algo)
+
+
+def batch_on_problem_select(event):
+    if real_prob_listbox2.curselection():
+        selected_problem = real_prob_listbox2.get(real_prob_listbox2.curselection())
+        batch_show_problem_parameters(selected_problem)
+
+
+def batch_show_algorithm_parameters(algo_name):
+    global batch_method_para
+    global batch_para_entry_list
+    global batch_last_para_type
+    global batch_last_para_name
+    batch_clear_param_frame()
+
+    batch_last_para_type = 1
+    batch_last_para_name = algo_name
+
+    paras = batch_method_para[algo_name]
+    required_parameters = paras['name']
+    value_type = paras['type']
+    default_value = paras['value']
+
+    for i in range(len(required_parameters)):
+        if i != 0:
+            ttk.Label(para_setting_frame2, text=required_parameters[i] + ':').grid(row=i - 1, column=0, sticky='nsew', padx=5, pady=10)
+        batch_para_entry_list.append(ttk.Entry(para_setting_frame2, width=10, bootstyle="primary"))
+        if i != 0:
+            batch_para_entry_list[-1].grid(row=i - 1, column=1, sticky='nsew', padx=5, pady=10)
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+        if default_value[i] is not None:
+            batch_para_entry_list[-1].insert(0, str(default_value[i].get()))
+    para_setting_frame2.grid_columnconfigure(0, weight=1)
+    para_setting_frame2.grid_columnconfigure(1, weight=2)
+
+    if len(required_parameters) < 5:
+        for i in range(len(required_parameters), 5):
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+
+
+def batch_show_problem_parameters(problem_name):
+    global batch_problem_para
+    global batch_para_entry_list
+    global batch_last_para_type
+    global batch_last_para_name
+    batch_clear_param_frame()
+
+    batch_last_para_type = 2
+    batch_last_para_name = problem_name
+
+    paras = batch_problem_para[problem_name]
+    required_parameters = paras['name']
+    value_type = paras['type']
+    default_value = paras['value']
+
+    for i in range(len(required_parameters)):
+        if i != 0:
+            ttk.Label(para_setting_frame2, text=required_parameters[i] + ':').grid(row=i - 1, column=0, sticky='nsew',
+                                                                                   padx=5, pady=10)
+        batch_para_entry_list.append(ttk.Entry(para_setting_frame2, width=10, bootstyle="primary"))
+        if i != 0:
+            batch_para_entry_list[-1].grid(row=i - 1, column=1, sticky='nsew', padx=5, pady=10)
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+        if default_value[i] is not None:
+            batch_para_entry_list[-1].insert(0, str(default_value[i].get()))
+    para_setting_frame2.grid_columnconfigure(0, weight=1)
+    para_setting_frame2.grid_columnconfigure(1, weight=2)
+
+    if len(required_parameters) < 5:
+        for i in range(len(required_parameters), 5):
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+
+def batch_clear_param_frame():
+    global batch_para_entry_list
+    global batch_last_para_type
+    global batch_last_para_name
+    global batch_problem_para
+    global batch_method_para
+
+    # 需要存上一次的东西
+    if batch_last_para_type==0:
+        pass
+    elif batch_last_para_type==1:
+        for i in range(len(batch_para_entry_list)):
+            batch_method_para[batch_last_para_name]['value'][i].set(batch_para_entry_list[i].get())
+    elif batch_last_para_type==2:
+        for i in range(len(batch_para_entry_list)):
+            batch_problem_para[batch_last_para_name]['value'][i].set(batch_para_entry_list[i].get())
+
+
+    batch_para_entry_list = []
+    for widget in para_setting_frame2.winfo_children():
+        widget.destroy()
+
+    # todo 3 注意，最后一次的还没存，需要点击plot->调用reture_para()的时候，再像这样存东西
+
+############################
 def on_algo_select(event):
     global selected_algo
     if algo_listbox.curselection():
@@ -846,17 +977,6 @@ if __name__ == '__main__':
     ##########################################################
 
     # frame 2
-    # todo 1 add something in batch experiments
-    # label2 = ttk.Label(frame2, text="这是界面 2", font=("Arial", 16))
-    # label2.pack(pady=10)
-    #
-    # entry2 = ttk.Entry(frame2)
-    # entry2.pack(pady=10)
-    #
-    # button_in_frame2 = ttk.Button(frame2, text="Frame 2 按钮")
-    # button_in_frame2.pack(pady=10)
-
-    # todo 1 后面可能需要添加变量名
 
     left_frame2 = ttk.Frame(frame2)
     left_frame2.grid(row=0, column=0, sticky="nsew")
@@ -874,7 +994,6 @@ if __name__ == '__main__':
     llm_frame2 = ttk.Labelframe(left_frame2, text="LLM setups", bootstyle="dark")
     llm_frame2.pack(anchor=tk.NW, fill=tk.X, padx=5, pady=5)
 
-    # todo 1 这里新建了一个entry_list，可能存值和读值的时候会有点问题
     for i in range(len(llm_para_value_name_list)):
         llm_para_entry_list2.append(
             PlaceholderEntry(llm_frame2, width=70, bootstyle="dark", placeholder=llm_para_placeholder_list[i]))
@@ -906,8 +1025,6 @@ if __name__ == '__main__':
     algo_frame2 = ttk.Labelframe(container_frame_1_2, text="Methods", bootstyle="primary")
     algo_frame2.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-    # todo 2 加入两个button，为这两个button绑定函数
-
     button_frame_algo_2 = tk.Frame(container_frame_1_2)
     button_frame_algo_2.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
@@ -938,6 +1055,7 @@ if __name__ == '__main__':
     real_algo_listbox2 = tk.Listbox(real_algo_frame2, height=6, bg='white', selectbackground='lightgray',
                                font=('Comic Sans MS', 12))
     real_algo_listbox2.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
+    real_algo_listbox2.bind("<<ListboxSelect>>", batch_on_algo_select)
 
     ###
 
@@ -960,7 +1078,6 @@ if __name__ == '__main__':
     button_frame_prob_2 = tk.Frame(container_frame_2_2)
     button_frame_prob_2.grid(row=0, column=1, sticky="nsew")
 
-    # todo 2 为这两个button绑定函数
     add_button22 = ttk.Button(button_frame_prob_2, text="Add-->", width=12, command=add_problem,
                              bootstyle="primary-outline", state=tk.NORMAL)
     add_button22.grid(row=1, column=1, pady=5)
@@ -988,6 +1105,8 @@ if __name__ == '__main__':
     real_prob_listbox2 = tk.Listbox(real_problem_frame2, height=6, bg='white', selectbackground='lightgray',
                                     font=('Comic Sans MS', 12))
     real_prob_listbox2.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
+    real_prob_listbox2.bind("<<ListboxSelect>>", batch_on_problem_select)
+
 
     ###
 
@@ -1021,6 +1140,7 @@ if __name__ == '__main__':
     ###
 
     # todo 1 为按钮绑定函数
+    # todo 1 做到这里了，上面的组件都不用管
     # plot_button2 = ttk.Button(left_frame2, text="Run", command=on_plot_button_click, width=12,
     #                          bootstyle="primary-outline", state=tk.NORMAL)
     plot_button2 = ttk.Button(left_frame2, text="Run", width=12,
