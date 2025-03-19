@@ -49,8 +49,13 @@ def main(args):
 
     # 2. Translate functional code to CUDA Kernel
     args.func_code = func_code
-    res, cuda_code = translate_into_CUDA_kernel(llm_for_func_convert, args, retry=100)
-    a = 1
+    res_dict, error_message = translate_into_CUDA_kernel(llm_for_func_convert, args, retry=100)
+    if error_message is not None:
+        print("Translation failed!")
+        return
+
+    # 3. Optimize the CUDA Kernel
+
 
 
     # o1_preview = HttpsApi(model="o1-preview-2024-09-12", **config_dict)
