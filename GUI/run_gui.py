@@ -166,11 +166,13 @@ def remove_algorithm():
     global selected_algorithms_list
     global real_algo_listbox2
     global batch_method_para
+    global batch_last_para_type
 
     selected = real_algo_listbox2.curselection()
     if not selected:
         return
 
+    batch_last_para_type = 0
     algo_name = real_algo_listbox2.get(selected[0])
     selected_algorithms_list.remove(algo_name)
     real_algo_listbox2.delete(selected[0])
@@ -204,11 +206,13 @@ def remove_problem():
     global selected_problems_list
     global real_prob_listbox2
     global batch_problem_para
+    global batch_last_para_type
 
     selected = real_prob_listbox2.curselection()
     if not selected:
         return
 
+    batch_last_para_type = 0
     prob_name = real_prob_listbox2.get(selected[0])
     selected_problems_list.remove(prob_name)
     real_prob_listbox2.delete(selected[0])
