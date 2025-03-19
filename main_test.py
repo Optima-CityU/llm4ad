@@ -17,7 +17,8 @@ RES_PATH = os.path.join(ABS_PATH, 'Results')
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluation on KernelBench')
-    parser.add_argument('--CUDA_HOME', type=str, default="/usr/local/cuda", help='cuda home directory')
+    parser.add_argument('--CUDA_HOME', type=str, default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6", help='cuda home directory')
+    # parser.add_argument('--CUDA_HOME', type=str, default="/usr/local/cuda", help='cuda home directory')
     parser.add_argument('--CUDA_VER', type=str, default="12.4", help='cuda version')
     parser.add_argument('--GPU_TYPE', type=str, default="H100", help='gpu type')
     parser.add_argument('--GPU_ARCH', type=str, default="9.0", help='gpu arch')
