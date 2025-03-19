@@ -84,7 +84,7 @@ class FuncCodeVerify(CodeVerify):
                 self.set_seed(trial_seed)
                 model = org_model_inst.cuda(device=device)
                 self.set_seed(trial_seed)
-                func_model = func_model_inst.cuda()
+                func_model = func_model_inst.cuda(device=device)
 
                 output = model(*inputs)
                 torch.cuda.synchronize(device=device)

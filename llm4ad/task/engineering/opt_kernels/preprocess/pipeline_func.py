@@ -41,9 +41,9 @@ def translate_into_CUDA_kernel(llm_for_translate: HttpsApi, args, retry: int = 5
     translate_retry = 0
     while not translate_success:
         cuda_code = cuda_translator.get_code(args.func_code, cuda_code, error_message)
-        translate_success, error_message = cuda_verifier.evaluate_cuda_code(args.code_content, args.func_code, cuda_code, args.code_operation, args.device)
+        result_dict, error_message = cuda_verifier.evaluate_cuda_code(args.code_content, args.func_code, cuda_code, args.code_operation, args.device)
         graceful_eval_cleanup(args.device)
-        if translate_success:
+        if error_message is None:
             return translate_success, cuda_code
         translate_retry += 1
         print("Translation failed, retrying...")
