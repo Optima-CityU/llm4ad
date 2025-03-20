@@ -31,9 +31,11 @@ class HttpsApi(LLM):
     def __init__(self, host, key, model, timeout=60, **kwargs):
         """Https API
         Args:
-            host   : host name. please note that the host name does not include 'https://'
+            host   : host name. please note that the host name does not include 'https://'. 
+                     Note: use "localhost:11434" for ollama's default settings
             key    : API key.
-            model  : LLM model name.
+            model  : LLM model name. 
+                     Note: pass local ollama model in the form like "ollama:deepseek-r1:14b"
             timeout: API timeout.
         """
         super().__init__(**kwargs)
