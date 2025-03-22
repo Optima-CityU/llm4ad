@@ -38,6 +38,7 @@ from .sampler import EoHSampler
 from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
 )
+from ...base.cpp import CPPFunction,CPPProgram, CPPTextFunctionProgramConverter
 from ...tools.profiler import ProfilerBase
 
 
@@ -56,6 +57,7 @@ class EoH:
                  num_samplers: int = 1,
                  num_evaluators: int = 1,
                  *,
+                 code_type: Literal['Python', 'C++'] = 'Python',
                  resume_mode: bool = False,
                  initial_sample_nums_max: int = 50,
                  debug_mode: bool = False,
@@ -105,11 +107,17 @@ class EoH:
         self._multi_thread_or_process_eval = multi_thread_or_process_eval
 
         # function to be evolved
-        self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
-        self._function_to_evolve_name: str = self._function_to_evolve.name
-        self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
+        if code_type == 'Python':
+            self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
+            self._function_to_evolve_name: str = self._function_to_evolve.name
+            self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
+        elif code_type == 'C++':
+            self._function_to_evolve: CPPFunction = CPPTextFunctionProgramConverter.text_to_function(self._template_program_str)
+            self._function_to_evolve_name: str = self._function_to_evolve.name
+            self._template_program: CPPProgram = CPPTextFunctionProgramConverter.text_to_program(self._template_program_str)
 
-        # adjust population size
+
+            # adjust population size
         self._adjust_pop_size()
 
         # population, sampler, and evaluator

@@ -23,30 +23,27 @@ from __future__ import annotations
 from typing import Any
 
 from llm4ad.base import Evaluation
-from .template import template_program, task_description
 
 __all__ = ['KernelEvaluation']
 
 class KernelEvaluation(Evaluation):
     """Evaluator for car mountain problem."""
 
-    def __init__(self, temp_dir, timeout_seconds=300, **kwargs):
-        """
-            Args:
-                - 'temp_dir' #TODO: Add description
-
-            Attributes:
-
-        """
+    def __init__(
+            self,
+            func_code: str,
+            cuda_code: str,
+            timeout_seconds=300, **kwargs
+    ):
 
         super().__init__(
-            template_program=template_program,
-            task_description=task_description,
+            template_program="",
+            task_description="task_description",
             use_numba_accelerate=False,
             timeout_seconds=timeout_seconds
         )
-
-        self.temp_dir = temp_dir
+        self.func_code = func_code
+        self.cuda_code = cuda_code
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         pass
