@@ -15,6 +15,43 @@ from torch.profiler import profile, record_function, ProfilerActivity
 
 from ..code_verify import CodeVerify
 
+def time_execution_with_cuda_event(
+    kernel_fn: callable,
+    cuda_fn: callable,
+    args,
+    num_warmup: int = 3,
+    num_trials: int = 10,
+    device: torch.device = None,
+) -> list[float]:
+    if device is None:
+        device = torch.cuda.current_device()
+
+    for _ in range(num_warmup):
+        kernel_fn(*args, fn=cuda_fn.forward)
+        torch.cuda.synchronize(device=device)
+
+    elapsed_times = []
+
+    # Actual trials
+    for trial in range(num_trials):
+        # create event marker default is not interprocess
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+
+        start_event.record()
+        kernel_fn(*args, fn=cuda_fn.forward)
+        end_event.record()
+
+        # Synchronize to ensure the events have completed
+        torch.cuda.synchronize(device=device)
+
+        # Calculate the elapsed time in milliseconds
+        elapsed_time_ms = start_event.elapsed_time(end_event)
+        elapsed_times.append(elapsed_time_ms)
+
+    return elapsed_times
+
+
 def compile_cuda_code(code_operation: str, cuda_fname: str, build_dir: str):
     try:
         os.environ["TORCH_USE_CUDA_DSA"] = "1"
@@ -31,7 +68,18 @@ def compile_cuda_code(code_operation: str, cuda_fname: str, build_dir: str):
         # safe_reset_cuda()
         return None, f"Error loading CUDA code: {e}"
 
-def evaluate_cuda_code(org_torch_code: str, func_torch_code: str, cuda_code: str, code_operation: str, res_path: str, device: torch.device):
+def evaluate_cuda_code(org_torch_code: str, func_torch_code: str, cuda_code: str, code_operation: str, res_path: str, device: torch.device, seed: int=0, verify_counts: int=5):
+    assert torch.cuda.is_available(), "CUDA is not available, cannot run Eval"
+    assert org_torch_code is not None and func_torch_code is not None and cuda_code is not None
+    torch.set_printoptions(
+        precision=4,  # Decimal places
+        threshold=10,  # Total number of elements before truncating
+        edgeitems=3,  # Number of elements at beginning and end of dimensions
+        linewidth=80,  # Maximum width before wrapping
+    )
+    # set CUDA device
+    torch.cuda.set_device(device)
+
     # get cpu count
     cpu_count = os.cpu_count()
     os.environ['MAX_JOBS'] = f"{cpu_count}"
@@ -62,7 +110,8 @@ def evaluate_cuda_code(org_torch_code: str, func_torch_code: str, cuda_code: str
     func_module, func_spec = CudaCodeVerify.load_module_from_path(func_code_path, "func_module")
     func_module_copy, func_spec_copy = CudaCodeVerify.load_module_from_path(func_code_copy_path, "func_module_copy")
 
-    init_inputs = org_module.get_init_inputs()
+    CudaCodeVerify.set_seed(seed)
+    init_inputs = func_module.get_init_inputs()
     init_inputs = [
         x.cuda() if isinstance(x, torch.Tensor) else x for x in init_inputs
     ]
@@ -70,68 +119,89 @@ def evaluate_cuda_code(org_torch_code: str, func_torch_code: str, cuda_code: str
     with torch.no_grad():
         func_model_inst = func_module.Model(*init_inputs)
         func_model_inst_copy = func_module_copy.Model(*init_inputs)
+        torch.cuda.synchronize(device=device)
 
-    for i in range(5):
-        try:
-            correctness, error_message = check_correctness(
-                func_model_inst, func_model_inst_copy, org_module.get_inputs, cuda_fn
-            )
-        except Exception as e:
-            return dict(), f"Error running CUDA code: {e}"
-        if not correctness:
-            return dict(), error_message
+    try:
+        correctness, error_message = check_correctness(
+        func_model_inst, func_model_inst_copy, org_module.get_inputs, cuda_fn, device
+    )
+    except Exception as e:
+        correctness, error_message = False, f"Error checking correctness: {str(e)}"
+
+    if not correctness:
+        return dict(), error_message
 
     del func_model_inst
     torch.cuda.empty_cache()
-    torch.cuda.synchronize()
-    func_model_inst_copy = func_model_inst_copy.cuda()
-    # Now that the CUDA code is correct, we can evaluate the performance
-    with torch.no_grad():
-        inputs = org_module.get_inputs()
-        inputs = [
-            x.cuda() if isinstance(x, torch.Tensor) else x
-            for x in inputs
-        ]
-    cuda_timer = Timer(
-        stmt="model(*inputs, fn=cuda_fn.forward)",
-        globals={
-            "model": func_model_inst_copy.cuda(),
-            "inputs": inputs,
-            "cuda_fn": cuda_fn,
-        },
+    torch.cuda.synchronize(device=device)
+    CodeVerify.set_seed(seed)
+    inputs = func_module.get_inputs()
+    inputs = [
+        x.cuda(device=device) if isinstance(x, torch.Tensor) else x
+        for x in inputs
+    ]
+
+    cuda_model = func_model_inst_copy.cuda(device=device)
+    torch.cuda.synchronize(device=device)
+
+    elapsed_times = time_execution_with_cuda_event(
+        cuda_model,
+        cuda_fn,
+        inputs,
+        num_trials=10,
+        device=device,
     )
-    cuda_runtime = cuda_timer.timeit(100).mean * 1000
+    mean_elapsed_time = sum(elapsed_times) / len(elapsed_times)
+
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, profile_memory=True) as prof:
         with record_function("model_inference"):
             func_model_inst_copy(*inputs, fn=cuda_fn.forward)
     prof_string = prof.key_averages().table(sort_by="cuda_time_total", row_limit=10)
 
-    return dict(cuda_runtime=cuda_runtime, prof_string=prof_string), None
+    return dict(cuda_runtime=mean_elapsed_time, prof_string=prof_string), None
 
-def check_correctness(func_model_inst, func_model_inst_copy, get_inputs, cuda_fn, atol=1e-02, rtol=1e-02):
+def check_correctness(func_model_inst, func_model_inst_copy, get_inputs, cuda_fn, device, seed:int=0, verify_counts:int=5, atol=1e-02, rtol=1e-02):
+    pass_count = 0
+
+    torch.manual_seed(seed)
+    correctness_trial_seeds = [
+        torch.randint(0, 2 ** 32 - 1, (1,)).item() for _ in range(verify_counts)
+    ]
     with torch.no_grad():
-        inputs = get_inputs()
-        inputs = [
-            x.cuda() if isinstance(x, torch.Tensor) else x
-            for x in inputs
-        ]
+        for trial in range(verify_counts):
+            trial_seed = correctness_trial_seeds[trial]
+            CodeVerify.set_seed(trial_seed)
+            inputs = get_inputs()
+            inputs = [
+                x.cuda(device=device) if isinstance(x, torch.Tensor) else x
+                for x in inputs
+            ]
+            CodeVerify.set_seed(trial_seed)
+            model = func_model_inst.cuda(device=device)
+            CodeVerify.set_seed(trial_seed)
+            cuda_model = func_model_inst_copy.cuda(device=device)
 
-        model = func_model_inst.cuda()
-        model_new = func_model_inst_copy.cuda()
+            output = model(*inputs)
+            torch.cuda.synchronize(device=device)
 
-        output = model(*inputs)
-        try:
-            output_new = model_new(*inputs, fn=cuda_fn.forward)
-            torch.cuda.synchronize()
-            if output.shape != output_new.shape:
-                return False, f"Output shape mismatch: Expected {output.shape}, got {output_new.shape}"
-            if not torch.allclose(output, output_new, atol=atol, rtol=rtol):
-                max_diff = torch.max(torch.abs(output - output_new)).item()
-                avg_diff = torch.mean(torch.abs(output - output_new)).item()
-                return False, f"Output mismatch: max_diff={max_diff:.6f}, avg_diff={avg_diff:.6f}"
-        except Exception as e:
-            return False, f"Error running CUDA code: {e}"
-    return True, None
+            try:
+                output_new = cuda_model(*inputs, fn=cuda_fn.forward)
+                torch.cuda.synchronize(device=device)
+                if output.shape != output_new.shape:
+                    return False, f"Output shape mismatch: Expected {output.shape}, got {output_new.shape}"
+                if not torch.allclose(
+                        output, output_new, atol=atol, rtol=rtol
+                ):  # fail
+                    max_diff = torch.max(torch.abs(output - output_new)).item()
+                    avg_diff = torch.mean(torch.abs(output - output_new)).item()
+                    return False, f"Output mismatch: max_diff={max_diff:.6f}, avg_diff={avg_diff:.6f}"
+                else:
+                    pass_count += 1
+            except Exception as e:
+                return False, f"Error running the functional model: {str(e)}"
+
+    if pass_count == verify_counts:
+        return True, None
 
 
 class CudaCodeVerify(CodeVerify):
@@ -143,7 +213,7 @@ class CudaCodeVerify(CodeVerify):
             mp.set_start_method("spawn", force=True)
 
         time_stamp = time.strftime("%Y%m%d-%H%M%S")
-        temp_dir = tempfile.TemporaryDirectory(dir=self.res_path, prefix=f"{time_stamp}_")
+        temp_dir = tempfile.TemporaryDirectory(dir=self.res_path, prefix=f"{time_stamp}_", delete=False)
         os.makedirs(temp_dir.name, exist_ok=True)
         if os.path.exists(os.path.join(temp_dir.name, "build")):
             shutil.rmtree(os.path.join(temp_dir.name, "build"))

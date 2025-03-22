@@ -17,7 +17,8 @@ RES_PATH = os.path.join(ABS_PATH, 'Results')
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluation on KernelBench')
-    parser.add_argument('--CUDA_HOME', type=str, default="/usr/local/cuda", help='cuda home directory')
+    parser.add_argument('--CUDA_HOME', type=str, default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6", help='cuda home directory')
+    # parser.add_argument('--CUDA_HOME', type=str, default="/usr/local/cuda", help='cuda home directory')
     parser.add_argument('--CUDA_VER', type=str, default="12.4", help='cuda version')
     parser.add_argument('--GPU_TYPE', type=str, default="H100", help='gpu type')
     parser.add_argument('--GPU_ARCH', type=str, default="9.0", help='gpu arch')
@@ -48,8 +49,13 @@ def main(args):
 
     # 2. Translate functional code to CUDA Kernel
     args.func_code = func_code
-    res, cuda_code = translate_into_CUDA_kernel(llm_for_func_convert, args, retry=100)
-    a = 1
+    res_dict, error_message = translate_into_CUDA_kernel(llm_for_func_convert, args, retry=100)
+    if error_message is not None:
+        print("Translation failed!")
+        return
+
+    # 3. Optimize the CUDA Kernel
+
 
 
     # o1_preview = HttpsApi(model="o1-preview-2024-09-12", **config_dict)

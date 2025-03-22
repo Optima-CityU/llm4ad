@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 from .func_code_output import FuncCodeOutput
 from .func_code_verify import FuncCodeVerify
@@ -12,7 +14,7 @@ def graceful_eval_cleanup(device: torch.device):
         torch.cuda.reset_peak_memory_stats(device=device)
         torch.cuda.synchronize(device=device)
 
-def convert_to_functional_code(llm_for_convert: HttpsApi, args, retry: int = 50) -> tuple[bool, str]:
+def convert_to_functional_code(llm_for_convert: HttpsApi, args, retry: int = 10) -> tuple[bool, str]:
     func_converter = FuncCodeOutput(llm_for_convert)
     func_verifier = FuncCodeVerify(res_path=args.res_path, keep_temp=args.keep_temp)
 
@@ -31,7 +33,8 @@ def convert_to_functional_code(llm_for_convert: HttpsApi, args, retry: int = 50)
         if convert_retry >= retry:
             return convert_success, func_code
 
-def translate_into_CUDA_kernel(llm_for_translate: HttpsApi, args, retry: int = 50) -> tuple[bool, str]:
+def translate_into_CUDA_kernel(llm_for_translate: HttpsApi, args, retry: int = 10) -> tuple[Any, None] | tuple[
+    Any, Any]:
     cuda_translator = CudaCodeOutput(llm_for_translate)
     cuda_verifier = CudaCodeVerify(res_path=args.res_path, keep_temp=args.keep_temp)
 
@@ -41,11 +44,11 @@ def translate_into_CUDA_kernel(llm_for_translate: HttpsApi, args, retry: int = 5
     translate_retry = 0
     while not translate_success:
         cuda_code = cuda_translator.get_code(args.func_code, cuda_code, error_message)
-        translate_success, error_message = cuda_verifier.evaluate_cuda_code(args.code_content, args.func_code, cuda_code, args.code_operation, args.device)
+        result_dict, error_message = cuda_verifier.evaluate_cuda_code(args.code_content, args.func_code, cuda_code, args.code_operation, args.device)
         graceful_eval_cleanup(args.device)
-        if translate_success:
-            return translate_success, cuda_code
+        if error_message is None:
+            return result_dict, error_message
         translate_retry += 1
         print("Translation failed, retrying...")
         if translate_retry >= retry:
-            return translate_success, cuda_code
+            return result_dict, error_message
