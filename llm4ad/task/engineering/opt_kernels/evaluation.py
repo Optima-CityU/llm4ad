@@ -19,6 +19,7 @@
 
 
 from __future__ import annotations
+import re
 
 from typing import Any
 
@@ -31,19 +32,41 @@ class KernelEvaluation(Evaluation):
 
     def __init__(
             self,
-            func_code: str,
-            cuda_code: str,
+            args,
             timeout_seconds=300, **kwargs
     ):
+        operation_name = self._find_operation_name(cuda_code=args.cuda_code)
+        task_description = self._make_task_description(operation_name, args)
 
         super().__init__(
-            template_program="",
-            task_description="task_description",
+            template_program=args.cuda_code,
+            task_description=task_description,
             use_numba_accelerate=False,
             timeout_seconds=timeout_seconds
         )
-        self.func_code = func_code
-        self.cuda_code = cuda_code
+        self.args = args
+        self.func_code = args.func_code
+        self.cuda_code = args.cuda_code
+        self.gpu_type = args.GPU_TYPE
+        self.cuda_version = args.CUDA_VER
+
+    @staticmethod
+    def _find_operation_name(cuda_code: str) -> str:
+        pattern = r'm\.def\([^,]+,\s*&(\w+)'
+        matches = re.findall(pattern, cuda_code)
+        if matches:
+            return matches[0]
+
+    @staticmethod
+    def _make_task_description(operation_name: str, args) -> str:
+        return f"""
+You are a Machine Learning Engineer trying to reduce the runtime of a {operation_name} kernel in CUDA. 
+Make sure the kernel returns the correct result. Do not use any alternative precision that could result in an incorrect result. 
+The kernel will be run on a {args.GPU_TYPE} GPU with CUDA {args.CUDA_VER}.
+"""
+
+
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         pass
+

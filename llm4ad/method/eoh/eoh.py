@@ -38,7 +38,7 @@ from .sampler import EoHSampler
 from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
 )
-from ...base.cpp import CPPFunction,CPPProgram, CPPTextFunctionProgramConverter
+from ...base.opt_kernels import KERFunction,KERProgram, KERTextFunctionProgramConverter
 from ...tools.profiler import ProfilerBase
 
 
@@ -57,7 +57,7 @@ class EoH:
                  num_samplers: int = 1,
                  num_evaluators: int = 1,
                  *,
-                 code_type: Literal['Python', 'C++'] = 'Python',
+                 code_type: Literal['Python', 'Kernel'] = 'Kernel',
                  resume_mode: bool = False,
                  initial_sample_nums_max: int = 50,
                  debug_mode: bool = False,
@@ -111,10 +111,10 @@ class EoH:
             self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
             self._function_to_evolve_name: str = self._function_to_evolve.name
             self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
-        elif code_type == 'C++':
-            self._function_to_evolve: CPPFunction = CPPTextFunctionProgramConverter.text_to_function(self._template_program_str)
+        elif code_type == 'Kernel':
+            self._function_to_evolve: KERFunction = KERTextFunctionProgramConverter.text_to_function(evaluation.cuda_code, evaluation.func_code)
             self._function_to_evolve_name: str = self._function_to_evolve.name
-            self._template_program: CPPProgram = CPPTextFunctionProgramConverter.text_to_program(self._template_program_str)
+            self._template_program: KERProgram = KERTextFunctionProgramConverter.text_to_program(self._template_program_str)
 
 
             # adjust population size
