@@ -38,7 +38,8 @@ def main(args):
         max_generations=10,
         pop_size=20,
         num_samplers=4,
-        num_evaluators=4
+        num_evaluators=4,
+        code_type="C++"
     )
 
     method.run()

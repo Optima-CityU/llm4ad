@@ -2,6 +2,7 @@ import dataclasses
 @dataclasses.dataclass
 class CPPFunction:
     """A parsed CPP function."""
+    name: str
 
 @dataclasses.dataclass(frozen=True)
 class CPPProgram:
