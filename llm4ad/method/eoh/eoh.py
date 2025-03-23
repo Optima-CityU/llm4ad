@@ -34,6 +34,7 @@ from typing import Optional, Literal
 from .population import Population
 from .profiler import EoHProfiler
 from .prompt import EoHPrompt
+from .prompt_cpp import EoHPromptCPP
 from .sampler import EoHSampler
 from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
@@ -107,6 +108,7 @@ class EoH:
         self._multi_thread_or_process_eval = multi_thread_or_process_eval
 
         # function to be evolved
+        self.code_type = code_type
         if code_type == 'Python':
             self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
             self._function_to_evolve_name: str = self._function_to_evolve.name
@@ -122,7 +124,7 @@ class EoH:
 
         # population, sampler, and evaluator
         self._population = Population(pop_size=self._pop_size)
-        self._sampler = EoHSampler(llm, self._template_program_str)
+        self._sampler = EoHSampler(llm, self._template_program_str, code_type=code_type)
         self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
 
@@ -284,7 +286,10 @@ class EoH:
         while self._population.generation == 0:
             try:
                 # get a new func using i1
-                prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
+                if self.code_type == 'Python':
+                    prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
+                elif self.code_type == 'Kernel':
+                    prompt = EoHPromptCPP.get_prompt_i1(self._task_description_str, self._function_to_evolve)
                 self._sample_evaluate_register(prompt)
                 if self._tot_sample_nums > self._initial_sample_nums_max:
                     print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')

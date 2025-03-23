@@ -14,17 +14,15 @@ from llm4ad.method.eoh import EoH, EoHProfiler
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluation on KernelBench')
     # My local computer
+    parser.add_argument('--CUDA_HOME', type=str, default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6\\bin", help='cuda home directory')
+    parser.add_argument('--CUDA_VER', type=str, default="12.6", help='cuda version')
+    parser.add_argument('--GPU_TYPE', type=str, default="RTX 4060 Ti", help='gpu type')
+    parser.add_argument('--GPU_ARCH', type=str, default="8.9", help='gpu arch')
+    # computer of CityU
     # parser.add_argument('--CUDA_HOME', type=str, default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6\\bin", help='cuda home directory')
     # parser.add_argument('--CUDA_VER', type=str, default="12.6", help='cuda version')
-    # parser.add_argument('--GPU_TYPE', type=str, default="RTX 4060 Ti", help='gpu type')
-    # parser.add_argument('--GPU_ARCH', type=str, default="8.9", help='gpu arch')
-    # computer of CityU
-    parser.add_argument('--CUDA_HOME', type=str,
-                        default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6\\bin",
-                        help='cuda home directory')
-    parser.add_argument('--CUDA_VER', type=str, default="12.6", help='cuda version')
-    parser.add_argument('--GPU_TYPE', type=str, default="RTX 2080 Ti", help='gpu type')
-    parser.add_argument('--GPU_ARCH', type=str, default="7.5", help='gpu arch')
+    # parser.add_argument('--GPU_TYPE', type=str, default="RTX 2080 Ti", help='gpu type')
+    # parser.add_argument('--GPU_ARCH', type=str, default="7.5", help='gpu arch')
     parser.add_argument("--device", type=str, default="cuda:0", help="device")
     parser.add_argument('--keep_temp', choices=[True, False], default=True, help='keep_temp')
     args = parser.parse_args()
@@ -44,7 +42,7 @@ def main(args):
         evaluation=task,
         max_sample_nums=100,
         max_generations=10,
-        pop_size=20,
+        pop_size=2,
         num_samplers=4,
         num_evaluators=4,
         code_type="Kernel"

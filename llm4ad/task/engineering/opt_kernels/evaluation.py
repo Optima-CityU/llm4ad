@@ -24,6 +24,7 @@ import re
 from typing import Any
 
 from llm4ad.base import Evaluation
+from llm4ad.base.code import TextFunctionProgramConverter
 
 __all__ = ['KernelEvaluation']
 
@@ -35,8 +36,14 @@ class KernelEvaluation(Evaluation):
             args,
             timeout_seconds=300, **kwargs
     ):
+        python_program = TextFunctionProgramConverter.text_to_program(args.func_code)
+        for each_python_func in python_program.functions:
+            if each_python_func.name == 'module_fn':
+                python_func = each_python_func
+                break
+        self.python_func = python_func
         operation_name = self._find_operation_name(cuda_code=args.cuda_code)
-        task_description = self._make_task_description(operation_name, args)
+        task_description = self._make_task_description(operation_name, args, python_func)
 
         super().__init__(
             template_program=args.cuda_code,
@@ -50,6 +57,7 @@ class KernelEvaluation(Evaluation):
         self.gpu_type = args.GPU_TYPE
         self.cuda_version = args.CUDA_VER
 
+
     @staticmethod
     def _find_operation_name(cuda_code: str) -> str:
         pattern = r'm\.def\([^,]+,\s*&(\w+)'
@@ -58,11 +66,17 @@ class KernelEvaluation(Evaluation):
             return matches[0]
 
     @staticmethod
-    def _make_task_description(operation_name: str, args) -> str:
+    def _make_task_description(operation_name: str, args, python_func) -> str:
         return f"""
 You are a Machine Learning Engineer trying to reduce the runtime of a {operation_name} kernel in CUDA. 
 Make sure the kernel returns the correct result. Do not use any alternative precision that could result in an incorrect result. 
 The kernel will be run on a {args.GPU_TYPE} GPU with CUDA {args.CUDA_VER}.
+
+The Python function that you need to implement is:
+{str(python_func)}
+
+The CUDA kernel that you need to optimize is:
+{args.cuda_code}
 """
 
 

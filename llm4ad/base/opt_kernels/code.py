@@ -35,8 +35,36 @@ class _KERProgramVisitor:
             cls.find_returns_in_child(child)
 
     @classmethod
+    def find_function_definition(cls, node, func_name, code_str):
+        if node.kind == CursorKind.FUNCTION_DECL and node.spelling == func_name:
+            start_line = node.extent.start.line
+
+            def get_line_from_code_str(code_str, line_number):
+                """
+                从 code_str 中获取指定行的内容。
+                """
+                lines = code_str.splitlines()
+                if 1 <= line_number <= len(lines):
+                    return lines[line_number - 1].strip()  # 行号从 1 开始
+                return None
+
+            decl_line = get_line_from_code_str(code_str, start_line)
+            print(decl_line)
+            return decl_line
+        for child in node.get_children():
+            cls.find_function_definition(child, func_name, code_str)
+
+    @classmethod
     def visit_FunctionDef(cls, code_str: str):
         operation_name = cls._find_operation_name(code_str)
+        # Config.set_library_file(r"C:\Program Files\LLVM\bin\libclang.dll")
+        # index = Index.create()
+        # translation_unit = index.parse('tmp.cpp', args=['-std=c++11'],
+        #                                unsaved_files=[('tmp.cpp', code_str)])
+        # cursor = translation_unit.cursor
+
+        # func_name_line = cls.find_function_definition(cursor, operation_name, code_str)
+        includes, rest = cls._extract_includes(code_str)
         ker_function = KERFunction(name=operation_name, body=code_str)
         return ker_function
 
@@ -46,6 +74,18 @@ class _KERProgramVisitor:
         matches = re.findall(pattern, cuda_code)
         if matches:
             return matches[0]
+
+    @staticmethod
+    def _extract_includes(code_str: str) -> str:
+        includes = ''
+        rest = ''
+        for line in code_str.split('\n'):
+            if line.startswith('#include'):
+                includes += line + '\n'
+            else:
+                rest += line + '\n'
+
+        return includes, rest
 
 
 class KERTextFunctionProgramConverter:
