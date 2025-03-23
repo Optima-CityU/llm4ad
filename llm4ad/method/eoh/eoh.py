@@ -112,9 +112,9 @@ class EoH:
             self._function_to_evolve_name: str = self._function_to_evolve.name
             self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
         elif code_type == 'Kernel':
-            self._function_to_evolve: KERFunction = KERTextFunctionProgramConverter.text_to_function(evaluation.cuda_code, evaluation.func_code)
+            self._function_to_evolve, self._py_func_ref = KERTextFunctionProgramConverter.text_to_function(evaluation.cuda_code, evaluation.func_code)
             self._function_to_evolve_name: str = self._function_to_evolve.name
-            self._template_program: KERProgram = KERTextFunctionProgramConverter.text_to_program(self._template_program_str)
+            self._template_program = KERTextFunctionProgramConverter.text_to_program(evaluation.cuda_code)
 
 
             # adjust population size
