@@ -68,9 +68,9 @@ def compile_cuda_code(code_operation: str, cuda_fname: str, build_dir: str):
         # safe_reset_cuda()
         return None, f"Error loading CUDA code: {e}"
 
-def evaluate_cuda_code(org_torch_code: str, func_torch_code: str, cuda_code: str, code_operation: str, res_path: str, device: torch.device, seed: int=0, verify_counts: int=5):
+def evaluate_cuda_code(func_torch_code: str, cuda_code: str, code_operation: str, res_path: str, device: torch.device, seed: int=0, verify_counts: int=5):
     assert torch.cuda.is_available(), "CUDA is not available, cannot run Eval"
-    assert org_torch_code is not None and func_torch_code is not None and cuda_code is not None
+    assert func_torch_code is not None and cuda_code is not None
     torch.set_printoptions(
         precision=4,  # Decimal places
         threshold=10,  # Total number of elements before truncating
@@ -101,12 +101,10 @@ def evaluate_cuda_code(org_torch_code: str, func_torch_code: str, cuda_code: str
     except Exception as e:
         # safe_reset_cuda()
         return dict(), f"Error loading CUDA code: {e}"
-    org_code_path = os.path.join(res_path, "original.py")
     func_code_path = os.path.join(res_path, "func.py")
     func_code_copy_path = os.path.join(res_path, "func_copy.py")
-    CudaCodeVerify.write_multiple_files_to_multiple_paths([org_code_path, func_code_path, func_code_copy_path], [org_torch_code, func_torch_code, func_torch_code])
+    CudaCodeVerify.write_multiple_files_to_multiple_paths([func_code_path, func_code_copy_path], [func_torch_code, func_torch_code])
 
-    org_module, org_spec = CudaCodeVerify.load_module_from_path(org_code_path, "org_module")
     func_module, func_spec = CudaCodeVerify.load_module_from_path(func_code_path, "func_module")
     func_module_copy, func_spec_copy = CudaCodeVerify.load_module_from_path(func_code_copy_path, "func_module_copy")
 
@@ -117,13 +115,16 @@ def evaluate_cuda_code(org_torch_code: str, func_torch_code: str, cuda_code: str
     ]
 
     with torch.no_grad():
+        CudaCodeVerify.set_seed(seed)
         func_model_inst = func_module.Model(*init_inputs)
+        torch.cuda.synchronize(device=device)
+        CudaCodeVerify.set_seed(seed)
         func_model_inst_copy = func_module_copy.Model(*init_inputs)
         torch.cuda.synchronize(device=device)
 
     try:
         correctness, error_message = check_correctness(
-        func_model_inst, func_model_inst_copy, org_module.get_inputs, cuda_fn, device
+        func_model_inst, func_model_inst_copy, func_module.get_inputs, cuda_fn, device
     )
     except Exception as e:
         correctness, error_message = False, f"Error checking correctness: {str(e)}"
@@ -208,7 +209,7 @@ class CudaCodeVerify(CodeVerify):
     def __init__(self, verify_counts=5, res_path=None, keep_temp=False):
         super().__init__(verify_counts=verify_counts, res_path=res_path, keep_temp=keep_temp, specifier="CudaCodeVerify")
 
-    def evaluate_cuda_code(self, org_torch_code: str, func_torch_code: str, cuda_code: str, code_operation: str, device: torch.device):
+    def evaluate_cuda_code(self, func_torch_code: str, cuda_code: str, code_operation: str, device: torch.device):
         if sys.platform.startswith('linux'):
             mp.set_start_method("spawn", force=True)
 
@@ -219,7 +220,7 @@ class CudaCodeVerify(CodeVerify):
             shutil.rmtree(os.path.join(temp_dir.name, "build"))
 
         with mp.Pool(processes=1) as pool:
-            res = pool.apply_async(evaluate_cuda_code, (org_torch_code, func_torch_code, cuda_code, code_operation, temp_dir.name, device))
+            res = pool.apply_async(evaluate_cuda_code, (func_torch_code, cuda_code, code_operation, temp_dir.name, device))
             try:
                 result = res.get(timeout=300)
             except Exception as e:

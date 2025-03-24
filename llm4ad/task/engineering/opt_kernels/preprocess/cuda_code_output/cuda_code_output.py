@@ -32,7 +32,12 @@ class CudaCodeOutput(CodeOutput):
         # find the first match
         match = code_pattern.search(response)
         if match is None:
-            return response
+            code_block_pattern = re.compile(
+                r'^\s*```([^\n]*)\n([\s\S]*?)\n```\s*$',
+                re.DOTALL
+            )
+            cleaned_code = code_block_pattern.sub(r'\2', response.strip())
+            return cleaned_code.strip()
         else:
             code = match.group(1)
             code_block_pattern = re.compile(

@@ -100,8 +100,13 @@ class CPPSampleTrimmer:
         re_pattern = r'(#include.*)\n'
         matched_code = re.findall(re_pattern, generated_code, re.DOTALL)
 
-        return matched_code[0]
-
+        if len(matched_code) == 0:
+            return generated_code
+        else:
+            matched_code = matched_code[0]
+            if matched_code.endswith("```"):
+                matched_code = matched_code[:-3]
+            return matched_code
     @classmethod
     def auto_trim(cls, generated_code: str) -> str:
         """Automatically trim the preface of the generated content.

@@ -11,6 +11,8 @@ from llm4ad.task.engineering.opt_kernels import KernelEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
 from llm4ad.method.eoh import EoH, EoHProfiler
 
+from llm4ad.task.engineering.opt_kernels.preprocess.pipeline_func import convert_to_functional_code, translate_into_CUDA_kernel
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluation on KernelBench')
     # My local computer
@@ -35,10 +37,24 @@ def main(args):
     cpu_count = os.cpu_count()
     os.environ['MAX_JOBS'] = f"{cpu_count}"
 
+    deepseek_config_dict = {
+        "host": "api.deepseek.com", "key": "sk-60c9ae55582545dba2a72c3a4b498e82",
+        "url": "/v1/chat/completions", "timeout": 120
+    }
+    ds_r1_instance = HttpsApi(model="deepseek-reasoner", **deepseek_config_dict)
+
+
+
     llm = HttpsApi(
         host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
         model='gpt-4o-2024-08-06', timeout=200
     )
+
+    args.func_code = func_code
+    res_dict, error_message = translate_into_CUDA_kernel(ds_r1_instance, args, retry=100)
+    if error_message is not None:
+        print("Translation failed!")
+        return
 
     task = KernelEvaluation(args)
 
@@ -69,6 +85,8 @@ if __name__ == '__main__':
     with open(os.path.join(DATA_PATH, 'test_cuda_code.cu'), 'r') as f:
         cuda_code = f.read()
 
+    # code_operation = code_file_name[:-3]
+    args.code_operation = '1_Square_matrix_multiplication_'
     args.func_code = func_code
     args.cuda_code = cuda_code
     main(args)

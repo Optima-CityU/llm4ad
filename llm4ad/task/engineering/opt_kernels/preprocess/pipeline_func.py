@@ -44,7 +44,7 @@ def translate_into_CUDA_kernel(llm_for_translate: HttpsApi, args, retry: int = 1
     translate_retry = 0
     while not translate_success:
         cuda_code = cuda_translator.get_code(args.func_code, cuda_code, error_message)
-        result_dict, error_message = cuda_verifier.evaluate_cuda_code(args.code_content, args.func_code, cuda_code, args.code_operation, args.device)
+        result_dict, error_message = cuda_verifier.evaluate_cuda_code(args.func_code, cuda_code, args.code_operation, args.device)
         graceful_eval_cleanup(args.device)
         if error_message is None:
             return result_dict, error_message
