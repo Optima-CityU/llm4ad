@@ -29,6 +29,12 @@ def parse_args():
     return args
 
 def main(args):
+    os.environ["CUDA_HOME"] = args.CUDA_HOME
+    os.environ['TORCH_CUDA_ARCH_LIST'] = args.GPU_ARCH
+    # get cpu count
+    cpu_count = os.cpu_count()
+    os.environ['MAX_JOBS'] = f"{cpu_count}"
+
     llm = HttpsApi(
         host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
         model='gpt-4o-2024-08-06', timeout=200

@@ -11,3 +11,5 @@ pandas
 matplotlib
 ttkbootstrap
 gym
+
+ninja
