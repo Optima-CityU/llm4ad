@@ -40,6 +40,7 @@ from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
 )
 from ...base.opt_kernels import KERFunction,KERProgram, KERTextFunctionProgramConverter
+from ...base.opt_kernels.evaluate import CPPSecureEvaluator
 from ...tools.profiler import ProfilerBase
 
 
@@ -114,7 +115,8 @@ class EoH:
             self._function_to_evolve_name: str = self._function_to_evolve.name
             self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
         elif code_type == 'Kernel':
-            self._function_to_evolve, self._py_func_ref = KERTextFunctionProgramConverter.text_to_function(evaluation.cuda_code, evaluation.func_code)
+            self._function_to_evolve = KERTextFunctionProgramConverter.text_to_function(evaluation.cuda_code)
+            self._py_func_ref = KERTextFunctionProgramConverter.text_to_function_py(evaluation.func_code)
             self._function_to_evolve_name: str = self._function_to_evolve.name
             self._template_program = KERTextFunctionProgramConverter.text_to_program(evaluation.cuda_code)
 
@@ -125,7 +127,10 @@ class EoH:
         # population, sampler, and evaluator
         self._population = Population(pop_size=self._pop_size)
         self._sampler = EoHSampler(llm, self._template_program_str, code_type=code_type)
-        self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
+        if code_type == 'Python':
+            self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
+        elif code_type == 'Kernel':
+            self._evaluator = CPPSecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
 
         # statistics
@@ -191,7 +196,10 @@ class EoH:
         if thought is None or func is None:
             return
         # convert to Program instance
-        program = TextFunctionProgramConverter.function_to_program(func, self._template_program)
+        if self.code_type == 'Python':
+            program = TextFunctionProgramConverter.function_to_program(func, self._template_program)
+        elif self.code_type == 'Kernel':
+            program = KERTextFunctionProgramConverter.function_to_program(func, self._template_program)
         if program is None:
             return
         # evaluate

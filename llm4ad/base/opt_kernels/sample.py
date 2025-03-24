@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import re
 import ast
 import copy
 from abc import abstractmethod
@@ -95,40 +96,11 @@ class CPPSampleTrimmer:
 
     @classmethod
     def trim_preface_of_function(cls, generated_code: str):
-        """Trim the redundant descriptions/symbols/'def' declaration BEFORE the function body.
-        Example of a generated content from an LLM:
-        --------------------------------------------------------------------------
-        This is the optimized function ...
+        # C++ code start with #include, end with last }
+        re_pattern = r'(#include.*)\n'
+        matched_code = re.findall(re_pattern, generated_code, re.DOTALL)
 
-        def priority_v2(...) -> ...:
-            a = random.random()
-            return a * a
-
-        This function aims to ...
-        --------------------------------------------------------------------------
-        Example return of this function:
-        --------------------------------------------------------------------------
-            a = random.random()
-            return a * a
-
-        This function aims to ...
-        --------------------------------------------------------------------------
-        """
-        lines = generated_code.splitlines()
-        func_body_lineno = 0
-        find_def_declaration = False
-        for lineno, line in enumerate(lines):
-            # find the first 'def' statement in the given code
-            if line[:3] == 'def':
-                func_body_lineno = lineno
-                find_def_declaration = True
-                break
-        if find_def_declaration:
-            code = ''
-            for line in lines[func_body_lineno + 1:]:
-                code += line + '\n'
-            return code
-        return generated_code
+        return matched_code[0]
 
     @classmethod
     def auto_trim(cls, generated_code: str) -> str:
@@ -141,7 +113,7 @@ class CPPSampleTrimmer:
         return generated_code
 
     @classmethod
-    def sample_to_function(cls, generated_code: str, template_program: str | Program) -> Function | None:
+    def sample_to_function(cls, generated_code: str, template_program: str | KERProgram) -> KERFunction | None:
         """Convert the generated content (with redundant component)
         to a Function instance. If the convert fails, return None.
         Please note that the modified Function instance is not executable,
@@ -150,33 +122,22 @@ class CPPSampleTrimmer:
         program = cls.sample_to_program(generated_code, template_program)
         if program is None:
             return None
-        return TextFunctionProgramConverter.program_to_function(program)
+        return KERTextFunctionProgramConverter.program_to_function(program)
 
     @classmethod
-    def sample_to_program(cls, generated_code: str, template_program: str | Program) -> Program | None:
+    def sample_to_program(cls, generated_code: str, template_program: str | KERProgram) -> KERProgram | None:
         """Convert the generated content (with redundant component)
         to a Function instance. If the convert fails, return None.
         """
         try:
-            generated_code = cls.trim_function_body(generated_code)
             # convert program to Program instance
             if isinstance(template_program, str):
-                template_program = TextFunctionProgramConverter.text_to_program(template_program)
+                template_program = KERTextFunctionProgramConverter.text_to_program(template_program)
             else:
                 template_program = copy.deepcopy(template_program)
-            # store a docstring copy
-            docstr_copy = template_program.functions[0].docstring
-            # replace the function body with the generated body
             template_program.functions[0].body = generated_code
-            # ------------------------------------------------------------------------------------------------
-            # Add new operation on July 7, 2024: remove redundant docstrings.
-            # 1. Remove all docstrings.
-            template_program.functions[0] = cls.remove_docstrings(template_program.functions[0])
-            # 2. Check if the function body is 'None'.
             if template_program.functions[0].body == '' or template_program.functions[0].body is None:
                 return None
-            # 3. Add the docstring copy.
-            template_program.functions[0].docstring = docstr_copy
             # ------------------------------------------------------------------------------------------------
             return template_program
         except ValueError as value_err:
@@ -185,46 +146,17 @@ class CPPSampleTrimmer:
             return None
 
     @classmethod
-    def trim_function_body(cls, generated_code: str) -> str | None:
-        """Extracts the body of the generated function, trimming anything after it.
-        """
-        try:
-            if not generated_code:
-                return ''
-            code = f'def fake_function_header():\n{generated_code}'
-
-            # keep trying and deleting code from the end until the parser succeeds
-            tree = None
-            while tree is None:
-                try:
-                    tree = ast.parse(code)
-                except SyntaxError as e:
-                    # "e.lineno - 1" locates the line number of the lost python code
-                    code = '\n'.join(code.splitlines()[:e.lineno - 1])
-
-            if not code:
-                # Nothing could be saved from `generated_code`
-                return ''
-
-            visitor = _FunctionLineVisitor('fake_function_header')
-            visitor.visit(tree)
-            body_lines = code.splitlines()[1:visitor.function_end_line]
-            return '\n'.join(body_lines) + '\n\n'
-        except:
-            return None
-
-    @classmethod
-    def remove_docstrings(cls, func: Function | str):
+    def remove_docstrings(cls, func: KERFunction | str):
         func_ = copy.deepcopy(func)
-        func_ = TextFunctionProgramConverter.text_to_function(str(func_))  # convert to Function instance
+        func_ = KERTextFunctionProgramConverter.text_to_function(str(func_))  # convert to Function instance
         docstring = func_.docstring
         while not (docstring == "" or docstring is None):
             func_.docstring = ""
             func_str = str(func_)
-            func_ = TextFunctionProgramConverter.text_to_function(func_str)
+            func_ = KERTextFunctionProgramConverter.text_to_function(func_str)
             docstring = func_.docstring
 
-        if isinstance(func, Function):
+        if isinstance(func, KERFunction):
             for key, value in func.__dict__.items():
                 if key != 'docstring' and key != 'body':
                     setattr(func_, key, value)

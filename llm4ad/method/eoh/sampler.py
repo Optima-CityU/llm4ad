@@ -6,18 +6,24 @@ from typing import Optional, Literal
 
 from .prompt import EoHPrompt
 from ...base import LLM, SampleTrimmer, Function, Program
+from ...base.opt_kernels.sample import CPPSampleTrimmer
 
 
 class EoHSampler:
-    def __init__(self, sampler: LLM, template_program: str | Program):
+    def __init__(self, sampler: LLM, template_program: str | Program, code_type: Literal['Python', 'Kernel'] = 'Kernel'):
         self._sampler = sampler
         self._template_program = template_program
+        self.code_type = code_type
 
-    def get_thought_and_function(self, prompt: str, code_type: Literal['Python', 'Kernel'] = 'Kernel') -> Tuple[str, Function]:
+    def get_thought_and_function(self, prompt: str) -> Tuple[str, Function]:
         response = self._sampler.draw_sample(prompt)
         thought = self.__class__.trim_thought_from_response(response)
-        code = SampleTrimmer.trim_preface_of_function(response)
-        function = SampleTrimmer.sample_to_function(code, self._template_program)
+        if self.code_type == 'Python':
+            code = SampleTrimmer.trim_preface_of_function(response)
+            function = SampleTrimmer.sample_to_function(code, self._template_program)
+        else:
+            code = CPPSampleTrimmer.trim_preface_of_function(response)
+            function = CPPSampleTrimmer.sample_to_function(code, self._template_program)
         return thought, function
 
     @classmethod

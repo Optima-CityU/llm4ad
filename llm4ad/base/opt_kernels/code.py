@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import copy
 from clang.cindex import Index, CursorKind, TranslationUnit, Config
 from ..code import TextFunctionProgramConverter, Function
 
@@ -90,16 +91,19 @@ class _KERProgramVisitor:
 
 class KERTextFunctionProgramConverter:
     @classmethod
-    def text_to_function(cls, cpp_code: str, python_code: str) -> [Function, KERFunction] | None:
+    def text_to_function_py(cls, python_code: str) -> [Function, KERFunction] | None:
+        python_program = TextFunctionProgramConverter.text_to_program(python_code)
+        for each_python_func in python_program.functions:
+            if each_python_func.name == 'module_fn':
+                python_func = each_python_func
+                break
+        return python_func
+
+    @classmethod
+    def text_to_function(cls, cpp_code: str) -> [Function, KERFunction] | None:
         try:
-            # python_func = TextFunctionProgramConverter.text_to_function(python_code)
-            python_program = TextFunctionProgramConverter.text_to_program(python_code)
             cpp_program = cls.text_to_program(cpp_code)
-            for each_python_func in python_program.functions:
-                if each_python_func.name == 'module_fn':
-                    python_func = each_python_func
-                    break
-            return cpp_program.functions[0], python_func
+            return cpp_program.functions[0]
         except ValueError as value_err:
             raise value_err
         except:
@@ -118,4 +122,36 @@ class KERTextFunctionProgramConverter:
             return KERProgram(preface='', functions=[func])
         # catch all exceptions
         except Exception as e:
+            return None
+
+    @classmethod
+    def program_to_function(cls, program: KERProgram) -> KERFunction:
+        return program.functions[0]
+
+    @classmethod
+    def function_to_program(cls, function: str | Function, template_program: str | KERProgram) -> KERProgram | None:
+        try:
+            # convert function to Function instance
+            if isinstance(function, str):
+                function = cls.text_to_function(function)
+            else:
+                function = copy.deepcopy(function)
+
+            # convert template_program to Program instance
+            if isinstance(template_program, str):
+                template_program = cls.text_to_program(template_program)
+            else:
+                template_program = copy.deepcopy(template_program)
+
+            # assert that a program have one function
+            if len(template_program.functions) != 1:
+                raise ValueError(f'Only one function expected, got {len(template_program.functions)}'
+                                 f':\n{template_program.functions}')
+
+            # replace the function body with the new function body
+            template_program.functions[0].body = function.body
+            return template_program
+        except ValueError as value_err:
+            raise value_err
+        except:
             return None
