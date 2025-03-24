@@ -37,12 +37,14 @@ def main(args):
     cpu_count = os.cpu_count()
     os.environ['MAX_JOBS'] = f"{cpu_count}"
 
-    deepseek_config_dict = {
-        "host": "api.deepseek.com", "key": "sk-60c9ae55582545dba2a72c3a4b498e82",
-        "url": "/v1/chat/completions", "timeout": 120
-    }
-    ds_r1_instance = HttpsApi(model="deepseek-reasoner", **deepseek_config_dict)
-
+    # deepseek_config_dict = {
+    #     "host": "api.deepseek.com", "key": "sk-60c9ae55582545dba2a72c3a4b498e82", "timeout": 120
+    # }
+    # ds_r1_instance = HttpsApi(model="o3-mini", **deepseek_config_dict)
+    o3_llm = HttpsApi(
+        host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
+        model='gpt-4o', timeout=200
+    )
 
 
     llm = HttpsApi(
@@ -51,7 +53,7 @@ def main(args):
     )
 
     args.func_code = func_code
-    res_dict, error_message = translate_into_CUDA_kernel(ds_r1_instance, args, retry=100)
+    res_dict, error_message = translate_into_CUDA_kernel(o3_llm, args, retry=100)
     if error_message is not None:
         print("Translation failed!")
         return
