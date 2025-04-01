@@ -71,6 +71,9 @@ default_problem = ['online_bin_packing', 'car_mountain', 'bactgrow']
 log_dir = None
 figures = []
 
+batch_process1 = None
+batch_thread1 = None
+btach_log_dir = None
 
 ##########################################################
 
@@ -468,6 +471,39 @@ def batch_exp_problem_type_select(event=None):
 
 
 ###############################################################################
+
+# todo 1 函数: 点击plot按钮, 得到参数，for循环，for循环里面创建process和thread，然后process和thread运行完之后再下一个for循环。注意参考notion中的代码
+# todo 1 函数：初始化表格
+# todo 1 函数：get_result, 不用怎么改，主要是需要改成修改result的
+
+def batch_on_plot_button_click():
+    global batch_process1
+    global batch_thread1
+    global btach_log_dir
+
+    try:
+        if not batch_check_para():
+            tk.messagebox.showinfo("Warning", "Please configure the settings of LLM.")
+            return
+
+        llm_para, method_para, problem_para, profiler_para = batch_return_para()
+
+        # todo 1 继续补充
+
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+
+def batch_return_para():
+    # todo 1 继续补充
+    # todo 1 注意需要补充
+
+    pass
+
+def batch_check_para():
+    for i in llm_para_entry_list2[1:]:
+        if not i.have_content:
+            return False
+    return True
 
 def on_plot_button_click():
     global process1
@@ -1141,10 +1177,12 @@ if __name__ == '__main__':
     container_frame_3_2.grid_rowconfigure(0, weight=10)
     container_frame_3_2.grid_columnconfigure(0, weight=10)
 
-    ###
+    ##########################################################
 
     # todo 1 为按钮绑定函数
     # todo 1 做到这里了，上面的组件都不用管
+    # todo 1 判断上一步有没有结束，看process1是否结束，还有have_stop_thread是不是true，但还要看一下have_stop_thread的初始解
+
     # plot_button2 = ttk.Button(left_frame2, text="Run", command=on_plot_button_click, width=12,
     #                          bootstyle="primary-outline", state=tk.NORMAL)
     plot_button2 = ttk.Button(left_frame2, text="Run", width=12,
@@ -1157,7 +1195,7 @@ if __name__ == '__main__':
                               state=tk.DISABLED)
     stop_button2.pack(side='left', pady=20, expand=True)
 
-    ###
+    ##########################################################
 
     # todo 1 右边显示表格
 
@@ -1183,7 +1221,7 @@ if __name__ == '__main__':
     # 显示表格
     tree_temp.pack(padx=10, pady=10)
 
-    ###
+    ##########################################################
 
     # 默认显示 Frame 1，并设置按钮状态
     show_frame(frame1, button1)
