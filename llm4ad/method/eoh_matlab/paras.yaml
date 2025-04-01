@@ -1,0 +1,5 @@
+name: EoHMat
+max_generations: 10
+max_sample_nums: 20
+pop_size: 4
+num_evaluators: 4

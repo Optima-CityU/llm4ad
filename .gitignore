@@ -16,3 +16,4 @@ GUI/outputs
 **/test
 /.git
 /.gitattributes
+**/gui_test.py
