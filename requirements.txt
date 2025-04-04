@@ -11,5 +11,6 @@ pandas
 matplotlib
 ttkbootstrap
 gym
-
+clang
 ninja
+natsort

@@ -11,20 +11,28 @@ from llm4ad.task.engineering.opt_kernels import KernelEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
 from llm4ad.method.eoh import EoH, EoHProfiler
 
-from llm4ad.task.engineering.opt_kernels.preprocess.pipeline_func import convert_to_functional_code, translate_into_CUDA_kernel
+# from llm4ad.task.engineering.opt_kernels.preprocess.pipeline_func import convert_to_functional_code, translate_into_CUDA_kernel
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluation on KernelBench')
     # My local computer
-    parser.add_argument('--CUDA_HOME', type=str, default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6\\bin", help='cuda home directory')
-    parser.add_argument('--CUDA_VER', type=str, default="12.6", help='cuda version')
-    parser.add_argument('--GPU_TYPE', type=str, default="RTX 4060 Ti", help='gpu type')
-    parser.add_argument('--GPU_ARCH', type=str, default="8.9", help='gpu arch')
+    # parser.add_argument('--CUDA_HOME', type=str, default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6\\bin", help='cuda home directory')
+    # parser.add_argument('--CUDA_VER', type=str, default="12.6", help='cuda version')
+    # parser.add_argument('--GPU_TYPE', type=str, default="RTX 4060 Ti", help='gpu type')
+    # parser.add_argument('--GPU_ARCH', type=str, default="8.9", help='gpu arch')
     # computer of CityU
     # parser.add_argument('--CUDA_HOME', type=str, default="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.6\\bin", help='cuda home directory')
     # parser.add_argument('--CUDA_VER', type=str, default="12.6", help='cuda version')
     # parser.add_argument('--GPU_TYPE', type=str, default="RTX 2080 Ti", help='gpu type')
     # parser.add_argument('--GPU_ARCH', type=str, default="7.5", help='gpu arch')
+
+    # Cloud Computer 4090
+    parser.add_argument('--CUDA_HOME', type=str, default="/usr/local/cuda", help='cuda home directory')
+    parser.add_argument('--CUDA_VER', type=str, default="12.4", help='cuda version')
+    parser.add_argument('--GPU_TYPE', type=str, default="RTX 4090", help='gpu type')
+    parser.add_argument('--GPU_ARCH', type=str, default="8.9", help='gpu arch')
+
+
     parser.add_argument("--device", type=str, default="cuda:0", help="device")
     parser.add_argument('--keep_temp', choices=[True, False], default=True, help='keep_temp')
     args = parser.parse_args()
@@ -43,20 +51,13 @@ def main(args):
     # ds_r1_instance = HttpsApi(model="o3-mini", **deepseek_config_dict)
     o3_llm = HttpsApi(
         host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
-        model='gpt-4o', timeout=200
+        model='o3-mini', timeout=200
     )
-
 
     llm = HttpsApi(
         host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
         model='gpt-4o-2024-08-06', timeout=200
     )
-
-    args.func_code = func_code
-    res_dict, error_message = translate_into_CUDA_kernel(o3_llm, args, retry=100)
-    if error_message is not None:
-        print("Translation failed!")
-        return
 
     task = KernelEvaluation(args)
 
