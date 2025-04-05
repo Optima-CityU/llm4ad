@@ -47,20 +47,25 @@ def main(args):
     #     "host": "api.deepseek.com", "key": "sk-60c9ae55582545dba2a72c3a4b498e82", "timeout": 120
     # }
     # ds_r1_instance = HttpsApi(model="o3-mini", **deepseek_config_dict)
-    o3_llm = HttpsApi(
-        host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
-        model='o3-mini', timeout=200
-    )
+    # o3_llm = HttpsApi(
+    #     host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
+    #     model='o3-mini', timeout=200
+    # )
+    #
+    # llm = HttpsApi(
+    #     host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
+    #     model='gpt-4o-2024-08-06', timeout=200
+    # )
 
-    llm = HttpsApi(
-        host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
-        model='gpt-4o-2024-08-06', timeout=200
+    ds_v3 = HttpsApi(
+        host='api.deepseek.com', key='sk-60c9ae55582545dba2a72c3a4b498e82',
+        model='deepseek-chat', timeout=300
     )
 
     task = KernelEvaluation(args)
 
     method = EoH(
-        llm=llm,
+        llm=ds_v3,
         profiler=EoHProfiler(log_dir=os.path.join(args.res_path, "logs"), log_style='complex'),
         evaluation=task,
         max_sample_nums=45,
