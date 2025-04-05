@@ -27,7 +27,7 @@ class EoHPromptCPP:
         # create prompt content
         prompt_content = f'''{task_prompt}
 1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}. 
-2. Next, give the optimized Kernel implementation:
+2. Next, give the optimized kernel implementation:
 {str(temp_func)}
 Do not give additional explanations.'''
         return prompt_content
@@ -43,14 +43,14 @@ Do not give additional explanations.'''
         indivs_prompt = ''
         for i, indi in enumerate(indivs):
             indi.docstring = ''
-            indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += f'No. {i + 1} kernel implementation and the corresponding code are:\n{indi.algorithm}\n{str(indi)}\n'
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have {len(indivs)} existing algorithms with their codes as follows:
+I have {len(indivs)} existing kernel implementations with their codes as follows:
 {indivs_prompt}
-Please help me create a new algorithm that has a totally different form from the given ones. 
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
+Please help me create a new kernel implementation that has a totally different form from the given ones. 
+1. First, describe your new kernel implementation and main steps in one sentence. The description must be inside within boxed {{}}.
+2. Next, implement the kernel:
 {str(temp_func)}
 Do not give additional explanations.'''
         return prompt_content
@@ -67,15 +67,15 @@ Do not give additional explanations.'''
         indivs_prompt = ''
         for i, indi in enumerate(indivs):
             indi.docstring = ''
-            indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += f'No. {i + 1} kernel implementation and the corresponding code are:\n{indi.algorithm}\n{str(indi)}\n'
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have {len(indivs)} existing algorithms with their codes as follows:
+I have {len(indivs)} existing kernel implementations with their codes as follows:
 {indivs_prompt}
-Please help me create a new algorithm that has a totally different form from the given ones but can be motivated from them.
-1. Firstly, identify the common backbone idea in the provided algorithms. 
-2. Secondly, based on the backbone idea describe your new algorithm in one sentence. The description must be inside within boxed {{}}.
-3. Thirdly, implement the following Python function:
+Please help me create a new kernel implementation that has a totally different form from the given ones but can be motivated from them.
+1. Firstly, identify the common backbone idea in the provided kernel implementations. 
+2. Secondly, based on the backbone idea describe your new kernel implementation in one sentence. The description must be inside within boxed {{}}.
+3. Thirdly, implement the kernel:
 {str(temp_func)}
 Do not give additional explanations.'''
         return prompt_content
@@ -89,13 +89,13 @@ Do not give additional explanations.'''
 
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have one algorithm with its code as follows. Algorithm description:
+I have one kernel implementation with its code as follows. Kernel implementation description:
 {indi.algorithm}
 Code:
 {str(indi)}
-Please assist me in creating a new algorithm that has a different form but can be a modified version of the algorithm provided.
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
+Please assist me in creating a new kernel implementation that has a different form but can be a modified version of the kernel implementation provided.
+1. First, describe your new kernel implementation and main steps in one sentence. The description must be inside within boxed {{}}.
+2. Next, implement the kernel:
 {str(temp_func)}
 Do not give additional explanations.'''
         return prompt_content
@@ -108,13 +108,13 @@ Do not give additional explanations.'''
         temp_func.body = ''
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have one algorithm with its code as follows. Algorithm description:
+I have one kernel implementation with its code as follows. Kernel implementation description:
 {indi.algorithm}
 Code:
 {str(indi)}
-Please identify the main algorithm parameters and assist me in creating a new algorithm that has a different parameter settings of the score function provided.
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
+Please identify the main kernel implementation parameters and assist me in creating a new kernel implementation that has a different parameter settings of the kernel implementation provided.
+1. First, describe your new kernel implementation and main steps in one sentence. The description must be inside within boxed {{}}.
+2. Next, implement the kernel:
 {str(temp_func)}
 Do not give additional explanations.'''
         return prompt_content
