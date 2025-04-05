@@ -2,10 +2,7 @@ import os
 import time
 import argparse
 
-# use the absolute path to avoid the path error
-ABS_PATH = os.path.dirname(os.path.abspath(__file__))
-RES_PATH = os.path.join(ABS_PATH, 'Results')
-DATA_PATH = os.path.join(ABS_PATH, 'init_dataset', 'level1', '1_Square_matrix_multiplication_', "CudaCodeVerify")
+
 
 from llm4ad.task.engineering.opt_kernels import KernelEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
@@ -75,21 +72,27 @@ def main(args):
 
     method.run()
 
+# use the absolute path to avoid the path error
+ABS_PATH = os.path.dirname(os.path.abspath(__file__))
+RES_PATH = os.path.join(ABS_PATH, 'Results')
+# DATA_PATH = os.path.join(ABS_PATH, 'init_dataset', 'level1', '1_Square_matrix_multiplication_', "CudaCodeVerify")
+DATA_PATH = os.path.join(ABS_PATH, 'init_dataset', 'level1')
 
 if __name__ == '__main__':
     args = parse_args()
     time_stamp = time.strftime("%Y%m%d-%H%M%S")
-    args.res_path = os.path.join(RES_PATH, time_stamp)
-    os.makedirs(args.res_path, exist_ok=True)
 
-    with open(os.path.join(DATA_PATH, 'func.py'), 'r') as f:
-        func_code = f.read()
+    operation_list = os.listdir(DATA_PATH)
+    for each_operation in operation_list:
+        args.res_path = os.path.join(RES_PATH, time_stamp, each_operation)
+        os.makedirs(args.res_path, exist_ok=True)
+        with open(os.path.join(DATA_PATH, each_operation, "CudaCodeVerify", 'func.py'), 'r') as f:
+            func_code = f.read()
 
-    with open(os.path.join(DATA_PATH, 'test_cuda_code.cu'), 'r') as f:
-        cuda_code = f.read()
+        with open(os.path.join(DATA_PATH, each_operation, "CudaCodeVerify", 'test_cuda_code.cu'), 'r') as f:
+            cuda_code = f.read()
 
-    # code_operation = code_file_name[:-3]
-    args.code_operation = '1_Square_matrix_multiplication_'
-    args.func_code = func_code
-    args.cuda_code = cuda_code
-    main(args)
+        args.code_operation = each_operation
+        args.func_code = func_code
+        args.cuda_code = cuda_code
+        main(args)
