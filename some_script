@@ -1,0 +1,1 @@
+nohup /usr/bin/python3.11 /root/llm4ad/main_kernel_bench_all.py  >run.log 2>&1 &

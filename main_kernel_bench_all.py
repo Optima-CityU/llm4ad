@@ -1,5 +1,6 @@
 import os
 import time
+import natsort
 import argparse
 
 
@@ -83,6 +84,7 @@ if __name__ == '__main__':
     time_stamp = time.strftime("%Y%m%d-%H%M%S")
 
     operation_list = os.listdir(DATA_PATH)
+    operation_list = natsort.natsorted(operation_list)
     for each_operation in operation_list:
         args.res_path = os.path.join(RES_PATH, time_stamp, each_operation)
         os.makedirs(args.res_path, exist_ok=True)

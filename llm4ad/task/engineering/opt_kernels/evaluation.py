@@ -187,6 +187,7 @@ The CUDA kernel that you need to optimize is:
                 cuda_fn = cpp_extension.load(
                     name=self.operation_name,
                     sources=[cuda_code_path],
+                    build_directory=temp_dir,
                     extra_cuda_cflags=["-O3", "--use_fast_math"],
                     with_cuda=True,
                     verbose=False
