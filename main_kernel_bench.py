@@ -5,7 +5,7 @@ import argparse
 # use the absolute path to avoid the path error
 ABS_PATH = os.path.dirname(os.path.abspath(__file__))
 RES_PATH = os.path.join(ABS_PATH, 'Results')
-DATA_PATH = os.path.join(ABS_PATH, 'CUDABench', 'level1', '1_Square_matrix_multiplication_')
+DATA_PATH = os.path.join(ABS_PATH, 'init_dataset', 'level1', '1_Square_matrix_multiplication_', "CudaCodeVerify")
 
 from llm4ad.task.engineering.opt_kernels import KernelEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi

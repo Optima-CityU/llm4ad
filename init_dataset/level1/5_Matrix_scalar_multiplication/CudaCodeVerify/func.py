@@ -1,0 +1,40 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(A: torch.Tensor, s: float) -> torch.Tensor:
+    """
+    Performs matrix-scalar multiplication.
+
+    Args:
+        A: Input matrix of shape (M, N)
+        s: Scalar value
+
+    Returns:
+        C: Resulting matrix of shape (M, N)
+    """
+    return A * s
+
+
+class Model(nn.Module):
+    """
+    Simple model that performs a matrix-scalar multiplication (C = A * s)
+    """
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, A: torch.Tensor, s: float, fn=module_fn) -> torch.Tensor:
+        return fn(A, s)
+
+
+M = 16384
+N = 4096
+
+def get_inputs():
+    A = torch.randn(M, N)
+    s = 3.14
+    return [A, s]
+
+def get_init_inputs():
+    return []  # No special initialization inputs needed
