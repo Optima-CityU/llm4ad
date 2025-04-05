@@ -69,7 +69,7 @@ def main(args):
         max_generations=10,
         pop_size=2,
         num_samplers=4,
-        num_evaluators=4,
+        num_evaluators=1,
         code_type="Kernel"
     )
 

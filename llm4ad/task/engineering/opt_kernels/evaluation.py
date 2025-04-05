@@ -117,7 +117,7 @@ The CUDA kernel that you need to optimize is:
     @staticmethod
     def time_execution_with_cuda_event(
             kernel_fn: callable,
-            *args,
+            inputs,
             cuda_fn,
             num_warmup: int = 3,
             num_trials: int = 10,
@@ -144,7 +144,7 @@ The CUDA kernel that you need to optimize is:
 
         # Warm ups
         for _ in range(num_warmup):
-            kernel_fn(*args)
+            kernel_fn(*inputs)
             torch.cuda.synchronize(device=device)
 
         print(
@@ -159,7 +159,7 @@ The CUDA kernel that you need to optimize is:
             end_event = torch.cuda.Event(enable_timing=True)
 
             start_event.record()
-            kernel_fn(*args, fn=cuda_fn.forward)
+            kernel_fn(*inputs, fn=cuda_fn.forward)
             end_event.record()
 
             # Synchronize to ensure the events have completed
@@ -259,7 +259,7 @@ The CUDA kernel that you need to optimize is:
 
             elapsed_times = KernelEvaluation.time_execution_with_cuda_event(
                 model_new,
-                *inputs,
+                inputs,
                 cuda_fn,
                 num_trials=10,
                 verbose=False,
