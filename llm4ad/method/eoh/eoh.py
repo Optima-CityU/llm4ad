@@ -85,6 +85,11 @@ class EoH:
             initial_sample_nums_max     : maximum samples restriction during initialization.
             **kwargs                    : some args pass to 'llm4ad.base.SecureEvaluator'. Such as 'fork_proc'.
         """
+        assert initial_sample_nums_max <= max_sample_nums, \
+            'Error: "initial_sample_nums_max" must be <= "max_sample_nums".'
+        assert pop_size <= initial_sample_nums_max, \
+            'Error: "pop_size" must be <= "initial_sample_nums_max".'
+
         self._template_program_str = evaluation.template_program
         self._task_description_str = evaluation.task_description
         self._max_generations = max_generations
@@ -279,7 +284,9 @@ class EoH:
                 prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
                 self._sample_evaluate_register(prompt)
                 if self._tot_sample_nums > self._initial_sample_nums_max:
-                    print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
+                    # print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
+                    print(f'Note: During initialization, EoH gets {len(self._population)} algorithms '
+                          f'after {self._initial_sample_nums_max} trails.')
                     break
             except Exception:
                 if self._debug_mode:
