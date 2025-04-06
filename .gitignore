@@ -8,7 +8,6 @@
 **/*.log
 **/*.out
 **/.idea
-**/samples*
 **/sample2pkl.py
 GUI/outputs
 **/wandb

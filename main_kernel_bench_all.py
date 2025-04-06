@@ -87,11 +87,14 @@ DATA_PATH = os.path.join(ABS_PATH, 'init_dataset', 'level1')
 if __name__ == '__main__':
     args = parse_args()
     time_stamp = time.strftime("%Y%m%d-%H%M%S")
+    time_stamp = "20250405-161548"
 
     operation_list = os.listdir(DATA_PATH)
     operation_list = natsort.natsorted(operation_list)
     for each_operation in operation_list:
         args.res_path = os.path.join(RES_PATH, time_stamp, each_operation)
+        if os.path.exists(args.res_path):
+            continue
         os.makedirs(args.res_path, exist_ok=True)
         with open(os.path.join(DATA_PATH, each_operation, "CudaCodeVerify", 'func.py'), 'r') as f:
             func_code = f.read()
