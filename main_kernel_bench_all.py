@@ -98,7 +98,10 @@ if __name__ == '__main__':
         os.makedirs(args.res_path, exist_ok=True)
         func_file_path = os.path.join(DATA_PATH, each_operation, "CudaCodeVerify", 'func.py')
         cuda_file_path = os.path.join(DATA_PATH, each_operation, "CudaCodeVerify", 'test_cuda_code.cu')
-        if not os.path.exists(func_file_path) or not os.path.exists(cuda_file_path):
+        if not os.path.exists(func_file_path):
+            continue
+
+        if not os.path.exists(cuda_file_path):
             continue
 
         with open(func_file_path, 'r') as f:
