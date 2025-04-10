@@ -1,0 +1,14 @@
+[
+    {
+        "sample_order": 3,
+        "algorithm": "{Optimize the Softsign CUDA kernel by using fused multiply-add operations, loop unrolling, and increased thread utilization while maintaining numerical accuracy.}",
+        "function": "#include <torch/extension.h>\n#include <cuda.h>\n#include <cuda_runtime.h>\n#include <cmath>\n\n// Optimized CUDA kernel for Softsign activation\n__global__ void softsign_kernel(const float* __restrict__ x, float* __restrict__ y, int size) {\n    int index = blockIdx.x * blockDim.x * 4 + threadIdx.x;\n    #pragma unroll\n    for (int i = 0; i < 4; ++i) {\n        if (index < size) {\n            float val = x[index];\n            y[index] = __fdividef(val, __fadd_rn(1.0f, fabsf(val)));\n            index += blockDim.x;\n        }\n    }\n}\n\ntorch::Tensor forward(torch::Tensor x) {\n    TORCH_CHECK(x.is_cuda(), \"Input must be a CUDA tensor\");\n    auto y = torch::empty_like(x);\n    int size = x.numel();\n    \n    const int threads = 256;\n    const int blocks = (size + threads * 4 - 1) / (threads * 4);\n    \n    softsign_kernel<<<blocks, threads>>>(x.data_ptr<float>(), y.data_ptr<float>(), size);\n    cudaDeviceSynchronize();\n    return y;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def(\"forward\", &forward, \"Softsign activation forward (CUDA)\");\n}",
+        "score": -0.02951360009610653
+    },
+    {
+        "sample_order": 37,
+        "algorithm": "{Optimize the Softsign CUDA kernel by utilizing shared memory for coalesced memory access and warp-level reduction while maintaining numerical accuracy with precise math operations.}",
+        "function": "#include <torch/extension.h>\n#include <cuda.h>\n#include <cuda_runtime.h>\n#include <cmath>\n\n__global__ void softsign_kernel(const float* __restrict__ x, float* __restrict__ y, int size) {\n    extern __shared__ float s_data[];\n    int tid = threadIdx.x;\n    int idx = blockIdx.x * blockDim.x + tid;\n    \n    if (idx < size) {\n        s_data[tid] = x[idx];\n        __syncthreads();\n        \n        float val = s_data[tid];\n        s_data[tid] = val / (1.0f + fabsf(val));\n        __syncthreads();\n        \n        y[idx] = s_data[tid];\n    }\n}\n\ntorch::Tensor forward(torch::Tensor x) {\n    TORCH_CHECK(x.is_cuda(), \"Input must be a CUDA tensor\");\n    auto y = torch::empty_like(x);\n    int size = x.numel();\n    \n    const int threads = 256;\n    const int blocks = (size + threads - 1) / threads;\n    const int shared_mem = threads * sizeof(float);\n    \n    softsign_kernel<<<blocks, threads, shared_mem>>>(x.data_ptr<float>(), y.data_ptr<float>(), size);\n    return y;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def(\"forward\", &forward, \"Softsign activation forward (CUDA)\");\n}",
+        "score": -0.02417280003428459
+    }
+]

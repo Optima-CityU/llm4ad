@@ -1,0 +1,219 @@
+[2025-04-06 18:40:00] profile.py(218) : ====================================================================
+[2025-04-06 18:40:00] profile.py(219) : LLM Parameters
+[2025-04-06 18:40:00] profile.py(220) : --------------------------------------------------------------------
+[2025-04-06 18:40:00] profile.py(221) :   - LLM: HttpsApi
+[2025-04-06 18:40:00] profile.py(224) :   - do_auto_trim: True
+[2025-04-06 18:40:00] profile.py(224) :   - debug_mode: False
+[2025-04-06 18:40:00] profile.py(224) :   - _host: api.deepseek.com
+[2025-04-06 18:40:00] profile.py(224) :   - _key: sk-60c9ae55582545dba2a72c3a4b498e82
+[2025-04-06 18:40:00] profile.py(224) :   - _model: deepseek-chat
+[2025-04-06 18:40:00] profile.py(224) :   - _timeout: 300
+[2025-04-06 18:40:00] profile.py(224) :   - _kwargs: {}
+[2025-04-06 18:40:00] profile.py(224) :   - _cumulative_error: 0
+[2025-04-06 18:40:00] profile.py(225) : ====================================================================
+[2025-04-06 18:40:00] profile.py(226) : Problem Parameters
+[2025-04-06 18:40:00] profile.py(227) : --------------------------------------------------------------------
+[2025-04-06 18:40:00] profile.py(228) :   - Problem: KernelEvaluation
+[2025-04-06 18:40:00] profile.py(231) :   - python_func: def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs 3D tensor-matrix multiplication.
+
+    Args:
+        A (torch.Tensor): Input 3D tensor of shape (N, M, K).
+        B (torch.Tensor): Input matrix of shape (K, L).
+
+    Returns:
+        torch.Tensor: Output tensor of shape (N, M, L), resulting from the multiplication of A and B along the last dimension of A.
+    """
+    return torch.matmul(A, B)
+
+
+[2025-04-06 18:40:00] profile.py(231) :   - operation_name: matmul_cuda
+[2025-04-06 18:40:00] profile.py(231) :   - task_description: 
+You are a Machine Learning Engineer trying to reduce the runtime of a matmul_cuda kernel in CUDA. 
+Make sure the kernel returns the correct result as the function (The kernel provided to you may contain error, be cautious). Do not use any alternative precision that could result in an incorrect result. 
+The kernel will be run on a RTX 4090 GPU with CUDA 12.4.
+
+The Python function that you need to implement is:
+
+def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs 3D tensor-matrix multiplication.
+
+    Args:
+        A (torch.Tensor): Input 3D tensor of shape (N, M, K).
+        B (torch.Tensor): Input matrix of shape (K, L).
+
+    Returns:
+        torch.Tensor: Output tensor of shape (N, M, L), resulting from the multiplication of A and B along the last dimension of A.
+    """
+    return torch.matmul(A, B)
+
+
+
+The CUDA kernel that you need to optimize is:
+
+#include <torch/extension.h>
+
+__global__ void matmul_kernel(const float* A, const float* B, float* C, int N, int M, int K, int L) {
+    int n = blockIdx.x * blockDim.x + threadIdx.x;
+    int m = blockIdx.y * blockDim.y + threadIdx.y;
+    int l = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (n < N && m < M && l < L) {
+        float value = 0.0f;
+        for (int k = 0; k < K; ++k) {
+            value += A[n * M * K + m * K + k] * B[k * L + l];
+        }
+        C[n * M * L + m * L + l] = value;
+    }
+}
+
+at::Tensor matmul_cuda(at::Tensor A, at::Tensor B) {
+    int N = A.size(0);
+    int M = A.size(1);
+    int K = A.size(2);
+    int L = B.size(1);
+
+    auto C = torch::zeros({N, M, L}, A.options());
+
+    dim3 block(16, 16, 1);
+    dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y, (L + block.z - 1) / block.z);
+
+    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), N, M, K, L);
+
+    return C;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &matmul_cuda, "3D tensor-matrix multiplication (CUDA)");
+}
+
+[2025-04-06 18:40:00] profile.py(231) :   - use_numba_accelerate: False
+[2025-04-06 18:40:00] profile.py(231) :   - use_protected_div: False
+[2025-04-06 18:40:00] profile.py(231) :   - protected_div_delta: 1e-05
+[2025-04-06 18:40:00] profile.py(231) :   - random_seed: None
+[2025-04-06 18:40:00] profile.py(231) :   - timeout_seconds: 300
+[2025-04-06 18:40:00] profile.py(231) :   - exec_code: False
+[2025-04-06 18:40:00] profile.py(231) :   - safe_evaluate: False
+[2025-04-06 18:40:00] profile.py(231) :   - daemon_eval_process: False
+[2025-04-06 18:40:00] profile.py(231) :   - args: Namespace(CUDA_HOME='/usr/local/cuda', CUDA_VER='12.4', GPU_TYPE='RTX 4090', GPU_ARCH='8.9', device='cuda:0', keep_temp=True, res_path='/root/llm4ad/Results/20250405-161548/10_3D_tensor_matrix_multiplication', code_operation='10_3D_tensor_matrix_multiplication', func_code='import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n\ndef module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:\n    """\n    Performs 3D tensor-matrix multiplication.\n\n    Args:\n        A (torch.Tensor): Input 3D tensor of shape (N, M, K).\n        B (torch.Tensor): Input matrix of shape (K, L).\n\n    Returns:\n        torch.Tensor: Output tensor of shape (N, M, L), resulting from the multiplication of A and B along the last dimension of A.\n    """\n    return torch.matmul(A, B)\n\n\nclass Model(nn.Module):\n    """\n    Performs 3D tensor-matrix multiplication.\n    """\n\n    def __init__(self):\n        super(Model, self).__init__()\n\n    def forward(self, A, B, fn=module_fn):\n        return fn(A, B)\n\n\nN = 16\nM = 1024\nK = 2048\nL = 768\n\n\ndef get_inputs():\n    A = torch.randn(N, M, K)\n    B = torch.randn(K, L)\n    return [A, B]\n\n\ndef get_init_inputs():\n    return []  # No special initialization inputs needed', cuda_code='#include <torch/extension.h>\n\n__global__ void matmul_kernel(const float* A, const float* B, float* C, int N, int M, int K, int L) {\n    int n = blockIdx.x * blockDim.x + threadIdx.x;\n    int m = blockIdx.y * blockDim.y + threadIdx.y;\n    int l = blockIdx.z * blockDim.z + threadIdx.z;\n\n    if (n < N && m < M && l < L) {\n        float value = 0.0f;\n        for (int k = 0; k < K; ++k) {\n            value += A[n * M * K + m * K + k] * B[k * L + l];\n        }\n        C[n * M * L + m * L + l] = value;\n    }\n}\n\nat::Tensor matmul_cuda(at::Tensor A, at::Tensor B) {\n    int N = A.size(0);\n    int M = A.size(1);\n    int K = A.size(2);\n    int L = B.size(1);\n\n    auto C = torch::zeros({N, M, L}, A.options());\n\n    dim3 block(16, 16, 1);\n    dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y, (L + block.z - 1) / block.z);\n\n    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), N, M, K, L);\n\n    return C;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def("forward", &matmul_cuda, "3D tensor-matrix multiplication (CUDA)");\n}')
+[2025-04-06 18:40:00] profile.py(231) :   - func_code: import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs 3D tensor-matrix multiplication.
+
+    Args:
+        A (torch.Tensor): Input 3D tensor of shape (N, M, K).
+        B (torch.Tensor): Input matrix of shape (K, L).
+
+    Returns:
+        torch.Tensor: Output tensor of shape (N, M, L), resulting from the multiplication of A and B along the last dimension of A.
+    """
+    return torch.matmul(A, B)
+
+
+class Model(nn.Module):
+    """
+    Performs 3D tensor-matrix multiplication.
+    """
+
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, A, B, fn=module_fn):
+        return fn(A, B)
+
+
+N = 16
+M = 1024
+K = 2048
+L = 768
+
+
+def get_inputs():
+    A = torch.randn(N, M, K)
+    B = torch.randn(K, L)
+    return [A, B]
+
+
+def get_init_inputs():
+    return []  # No special initialization inputs needed
+[2025-04-06 18:40:00] profile.py(231) :   - cuda_code: #include <torch/extension.h>
+
+__global__ void matmul_kernel(const float* A, const float* B, float* C, int N, int M, int K, int L) {
+    int n = blockIdx.x * blockDim.x + threadIdx.x;
+    int m = blockIdx.y * blockDim.y + threadIdx.y;
+    int l = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (n < N && m < M && l < L) {
+        float value = 0.0f;
+        for (int k = 0; k < K; ++k) {
+            value += A[n * M * K + m * K + k] * B[k * L + l];
+        }
+        C[n * M * L + m * L + l] = value;
+    }
+}
+
+at::Tensor matmul_cuda(at::Tensor A, at::Tensor B) {
+    int N = A.size(0);
+    int M = A.size(1);
+    int K = A.size(2);
+    int L = B.size(1);
+
+    auto C = torch::zeros({N, M, L}, A.options());
+
+    dim3 block(16, 16, 1);
+    dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y, (L + block.z - 1) / block.z);
+
+    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), N, M, K, L);
+
+    return C;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &matmul_cuda, "3D tensor-matrix multiplication (CUDA)");
+}
+[2025-04-06 18:40:00] profile.py(231) :   - gpu_type: RTX 4090
+[2025-04-06 18:40:00] profile.py(231) :   - cuda_version: 12.4
+[2025-04-06 18:40:00] profile.py(231) :   - device: cuda:0
+[2025-04-06 18:40:00] profile.py(233) : ====================================================================
+[2025-04-06 18:40:00] profile.py(234) : Method Parameters
+[2025-04-06 18:40:00] profile.py(235) : --------------------------------------------------------------------
+[2025-04-06 18:40:00] profile.py(236) :   - Method: EoH
+[2025-04-06 18:40:00] profile.py(240) :   - _max_generations: 9
+[2025-04-06 18:40:00] profile.py(240) :   - _max_sample_nums: 45
+[2025-04-06 18:40:00] profile.py(240) :   - _pop_size: 5
+[2025-04-06 18:40:00] profile.py(240) :   - _selection_num: 2
+[2025-04-06 18:40:00] profile.py(240) :   - _use_e2_operator: True
+[2025-04-06 18:40:00] profile.py(240) :   - _use_m1_operator: True
+[2025-04-06 18:40:00] profile.py(240) :   - _use_m2_operator: True
+[2025-04-06 18:40:00] profile.py(240) :   - _num_samplers: 4
+[2025-04-06 18:40:00] profile.py(240) :   - _num_evaluators: 1
+[2025-04-06 18:40:00] profile.py(240) :   - _resume_mode: False
+[2025-04-06 18:40:00] profile.py(240) :   - _initial_sample_nums_max: 50
+[2025-04-06 18:40:00] profile.py(240) :   - _debug_mode: False
+[2025-04-06 18:40:00] profile.py(240) :   - _multi_thread_or_process_eval: thread
+[2025-04-06 18:40:00] profile.py(240) :   - code_type: Kernel
+[2025-04-06 18:40:00] profile.py(240) :   - _py_func_ref: def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs 3D tensor-matrix multiplication.
+
+    Args:
+        A (torch.Tensor): Input 3D tensor of shape (N, M, K).
+        B (torch.Tensor): Input matrix of shape (K, L).
+
+    Returns:
+        torch.Tensor: Output tensor of shape (N, M, L), resulting from the multiplication of A and B along the last dimension of A.
+    """
+    return torch.matmul(A, B)
+
+
+[2025-04-06 18:40:00] profile.py(240) :   - _function_to_evolve_name: matmul_cuda
+[2025-04-06 18:40:00] profile.py(240) :   - _tot_sample_nums: 0
+[2025-04-06 18:40:00] profile.py(240) :   - _evaluation_executor: <concurrent.futures.thread.ThreadPoolExecutor object at 0x7f3faaf79550>
+[2025-04-06 18:40:00] profile.py(242) : =====================================================================

@@ -1,0 +1,199 @@
+[2025-04-07 08:42:25] profile.py(218) : ====================================================================
+[2025-04-07 08:42:25] profile.py(219) : LLM Parameters
+[2025-04-07 08:42:25] profile.py(220) : --------------------------------------------------------------------
+[2025-04-07 08:42:25] profile.py(221) :   - LLM: HttpsApi
+[2025-04-07 08:42:25] profile.py(224) :   - do_auto_trim: True
+[2025-04-07 08:42:25] profile.py(224) :   - debug_mode: False
+[2025-04-07 08:42:25] profile.py(224) :   - _host: api.deepseek.com
+[2025-04-07 08:42:25] profile.py(224) :   - _key: sk-60c9ae55582545dba2a72c3a4b498e82
+[2025-04-07 08:42:25] profile.py(224) :   - _model: deepseek-chat
+[2025-04-07 08:42:25] profile.py(224) :   - _timeout: 300
+[2025-04-07 08:42:25] profile.py(224) :   - _kwargs: {}
+[2025-04-07 08:42:25] profile.py(224) :   - _cumulative_error: 0
+[2025-04-07 08:42:25] profile.py(225) : ====================================================================
+[2025-04-07 08:42:25] profile.py(226) : Problem Parameters
+[2025-04-07 08:42:25] profile.py(227) : --------------------------------------------------------------------
+[2025-04-07 08:42:25] profile.py(228) :   - Problem: KernelEvaluation
+[2025-04-07 08:42:25] profile.py(231) :   - python_func: def module_fn(x: torch.Tensor, alpha: float) -> torch.Tensor:
+    """
+    Applies ELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+        alpha (float): The alpha parameter for the ELU function.
+
+    Returns:
+        torch.Tensor: Output tensor with ELU applied, same shape as input.
+    """
+    return F.elu(x, alpha=alpha)
+
+
+[2025-04-07 08:42:25] profile.py(231) :   - operation_name: elu_forward
+[2025-04-07 08:42:25] profile.py(231) :   - task_description: 
+You are a Machine Learning Engineer trying to reduce the runtime of a elu_forward kernel in CUDA. 
+Make sure the kernel returns the correct result as the function (The kernel provided to you may contain error, be cautious). Do not use any alternative precision that could result in an incorrect result. 
+The kernel will be run on a RTX 4090 GPU with CUDA 12.4.
+
+The Python function that you need to implement is:
+
+def module_fn(x: torch.Tensor, alpha: float) -> torch.Tensor:
+    """
+    Applies ELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+        alpha (float): The alpha parameter for the ELU function.
+
+    Returns:
+        torch.Tensor: Output tensor with ELU applied, same shape as input.
+    """
+    return F.elu(x, alpha=alpha)
+
+
+
+The CUDA kernel that you need to optimize is:
+
+// Include necessary headers
+#include <torch/extension.h>
+
+__global__ void elu_kernel(float* input, float* output, int N, float alpha) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < N) {
+        float x = input[idx];
+        output[idx] = (x >= 0) ? x : alpha * (expf(x) - 1);
+    }
+}
+
+torch::Tensor elu_forward(torch::Tensor input, float alpha) {
+    auto output = torch::empty_like(input);
+    int N = input.numel();
+    int threads = 1024;
+    int blocks = (N + threads - 1) / threads;
+
+    elu_kernel<<<blocks, threads>>>(input.data_ptr<float>(), output.data_ptr<float>(), N, alpha);
+    return output;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &elu_forward, "ELU activation forward");
+}
+
+[2025-04-07 08:42:25] profile.py(231) :   - use_numba_accelerate: False
+[2025-04-07 08:42:25] profile.py(231) :   - use_protected_div: False
+[2025-04-07 08:42:25] profile.py(231) :   - protected_div_delta: 1e-05
+[2025-04-07 08:42:25] profile.py(231) :   - random_seed: None
+[2025-04-07 08:42:25] profile.py(231) :   - timeout_seconds: 300
+[2025-04-07 08:42:25] profile.py(231) :   - exec_code: False
+[2025-04-07 08:42:25] profile.py(231) :   - safe_evaluate: False
+[2025-04-07 08:42:25] profile.py(231) :   - daemon_eval_process: False
+[2025-04-07 08:42:25] profile.py(231) :   - args: Namespace(CUDA_HOME='/usr/local/cuda', CUDA_VER='12.4', GPU_TYPE='RTX 4090', GPU_ARCH='8.9', device='cuda:0', keep_temp=True, res_path='/root/llm4ad/Results/20250405-161548/31_ELU', code_operation='31_ELU', func_code='import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n\ndef module_fn(x: torch.Tensor, alpha: float) -> torch.Tensor:\n    """\n    Applies ELU activation to the input tensor.\n\n    Args:\n        x (torch.Tensor): Input tensor of any shape.\n        alpha (float): The alpha parameter for the ELU function.\n\n    Returns:\n        torch.Tensor: Output tensor with ELU applied, same shape as input.\n    """\n    return F.elu(x, alpha=alpha)\n\n\nclass Model(nn.Module):\n    """\n    Simple model that performs an ELU activation.\n    """\n\n    def __init__(self, alpha: float = 1.0):\n        """\n        Initializes the ELU model.\n\n        Args:\n            alpha (float, optional): The alpha parameter for the ELU function. Defaults to 1.0.\n        """\n        super(Model, self).__init__()\n        self.alpha = alpha\n\n    def forward(self, x: torch.Tensor, fn=module_fn) -> torch.Tensor:\n        return fn(x, self.alpha)\n\n\nbatch_size = 16\ndim = 16384\n\ndef get_inputs():\n    x = torch.randn(batch_size, dim)\n    return [x]\n\ndef get_init_inputs():\n    return [1.0]  # Provide alpha value for initialization', cuda_code='// Include necessary headers\n#include <torch/extension.h>\n\n__global__ void elu_kernel(float* input, float* output, int N, float alpha) {\n    int idx = blockIdx.x * blockDim.x + threadIdx.x;\n    if (idx < N) {\n        float x = input[idx];\n        output[idx] = (x >= 0) ? x : alpha * (expf(x) - 1);\n    }\n}\n\ntorch::Tensor elu_forward(torch::Tensor input, float alpha) {\n    auto output = torch::empty_like(input);\n    int N = input.numel();\n    int threads = 1024;\n    int blocks = (N + threads - 1) / threads;\n\n    elu_kernel<<<blocks, threads>>>(input.data_ptr<float>(), output.data_ptr<float>(), N, alpha);\n    return output;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def("forward", &elu_forward, "ELU activation forward");\n}')
+[2025-04-07 08:42:25] profile.py(231) :   - func_code: import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(x: torch.Tensor, alpha: float) -> torch.Tensor:
+    """
+    Applies ELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+        alpha (float): The alpha parameter for the ELU function.
+
+    Returns:
+        torch.Tensor: Output tensor with ELU applied, same shape as input.
+    """
+    return F.elu(x, alpha=alpha)
+
+
+class Model(nn.Module):
+    """
+    Simple model that performs an ELU activation.
+    """
+
+    def __init__(self, alpha: float = 1.0):
+        """
+        Initializes the ELU model.
+
+        Args:
+            alpha (float, optional): The alpha parameter for the ELU function. Defaults to 1.0.
+        """
+        super(Model, self).__init__()
+        self.alpha = alpha
+
+    def forward(self, x: torch.Tensor, fn=module_fn) -> torch.Tensor:
+        return fn(x, self.alpha)
+
+
+batch_size = 16
+dim = 16384
+
+def get_inputs():
+    x = torch.randn(batch_size, dim)
+    return [x]
+
+def get_init_inputs():
+    return [1.0]  # Provide alpha value for initialization
+[2025-04-07 08:42:25] profile.py(231) :   - cuda_code: // Include necessary headers
+#include <torch/extension.h>
+
+__global__ void elu_kernel(float* input, float* output, int N, float alpha) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < N) {
+        float x = input[idx];
+        output[idx] = (x >= 0) ? x : alpha * (expf(x) - 1);
+    }
+}
+
+torch::Tensor elu_forward(torch::Tensor input, float alpha) {
+    auto output = torch::empty_like(input);
+    int N = input.numel();
+    int threads = 1024;
+    int blocks = (N + threads - 1) / threads;
+
+    elu_kernel<<<blocks, threads>>>(input.data_ptr<float>(), output.data_ptr<float>(), N, alpha);
+    return output;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &elu_forward, "ELU activation forward");
+}
+[2025-04-07 08:42:25] profile.py(231) :   - gpu_type: RTX 4090
+[2025-04-07 08:42:25] profile.py(231) :   - cuda_version: 12.4
+[2025-04-07 08:42:25] profile.py(231) :   - device: cuda:0
+[2025-04-07 08:42:25] profile.py(233) : ====================================================================
+[2025-04-07 08:42:25] profile.py(234) : Method Parameters
+[2025-04-07 08:42:25] profile.py(235) : --------------------------------------------------------------------
+[2025-04-07 08:42:25] profile.py(236) :   - Method: EoH
+[2025-04-07 08:42:25] profile.py(240) :   - _max_generations: 9
+[2025-04-07 08:42:25] profile.py(240) :   - _max_sample_nums: 45
+[2025-04-07 08:42:25] profile.py(240) :   - _pop_size: 5
+[2025-04-07 08:42:25] profile.py(240) :   - _selection_num: 2
+[2025-04-07 08:42:25] profile.py(240) :   - _use_e2_operator: True
+[2025-04-07 08:42:25] profile.py(240) :   - _use_m1_operator: True
+[2025-04-07 08:42:25] profile.py(240) :   - _use_m2_operator: True
+[2025-04-07 08:42:25] profile.py(240) :   - _num_samplers: 4
+[2025-04-07 08:42:25] profile.py(240) :   - _num_evaluators: 1
+[2025-04-07 08:42:25] profile.py(240) :   - _resume_mode: False
+[2025-04-07 08:42:25] profile.py(240) :   - _initial_sample_nums_max: 50
+[2025-04-07 08:42:25] profile.py(240) :   - _debug_mode: False
+[2025-04-07 08:42:25] profile.py(240) :   - _multi_thread_or_process_eval: thread
+[2025-04-07 08:42:25] profile.py(240) :   - code_type: Kernel
+[2025-04-07 08:42:25] profile.py(240) :   - _py_func_ref: def module_fn(x: torch.Tensor, alpha: float) -> torch.Tensor:
+    """
+    Applies ELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+        alpha (float): The alpha parameter for the ELU function.
+
+    Returns:
+        torch.Tensor: Output tensor with ELU applied, same shape as input.
+    """
+    return F.elu(x, alpha=alpha)
+
+
+[2025-04-07 08:42:25] profile.py(240) :   - _function_to_evolve_name: elu_forward
+[2025-04-07 08:42:25] profile.py(240) :   - _tot_sample_nums: 0
+[2025-04-07 08:42:25] profile.py(240) :   - _evaluation_executor: <concurrent.futures.thread.ThreadPoolExecutor object at 0x7f26265956d0>
+[2025-04-07 08:42:25] profile.py(242) : =====================================================================

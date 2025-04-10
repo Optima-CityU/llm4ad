@@ -1,0 +1,214 @@
+[2025-04-06 23:25:31] profile.py(218) : ====================================================================
+[2025-04-06 23:25:31] profile.py(219) : LLM Parameters
+[2025-04-06 23:25:31] profile.py(220) : --------------------------------------------------------------------
+[2025-04-06 23:25:31] profile.py(221) :   - LLM: HttpsApi
+[2025-04-06 23:25:31] profile.py(224) :   - do_auto_trim: True
+[2025-04-06 23:25:31] profile.py(224) :   - debug_mode: False
+[2025-04-06 23:25:31] profile.py(224) :   - _host: api.deepseek.com
+[2025-04-06 23:25:31] profile.py(224) :   - _key: sk-60c9ae55582545dba2a72c3a4b498e82
+[2025-04-06 23:25:31] profile.py(224) :   - _model: deepseek-chat
+[2025-04-06 23:25:31] profile.py(224) :   - _timeout: 300
+[2025-04-06 23:25:31] profile.py(224) :   - _kwargs: {}
+[2025-04-06 23:25:31] profile.py(224) :   - _cumulative_error: 0
+[2025-04-06 23:25:31] profile.py(225) : ====================================================================
+[2025-04-06 23:25:31] profile.py(226) : Problem Parameters
+[2025-04-06 23:25:31] profile.py(227) : --------------------------------------------------------------------
+[2025-04-06 23:25:31] profile.py(228) :   - Problem: KernelEvaluation
+[2025-04-06 23:25:31] profile.py(231) :   - python_func: def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs matrix multiplication.
+
+    Args:
+        A: Input tensor of shape (M, K).
+        B: Input tensor of shape (K, N).
+
+    Returns:
+        Output tensor of shape (M, N).
+    """
+    return torch.matmul(A, B.T)
+
+
+[2025-04-06 23:25:31] profile.py(231) :   - operation_name: matmul_forward
+[2025-04-06 23:25:31] profile.py(231) :   - task_description: 
+You are a Machine Learning Engineer trying to reduce the runtime of a matmul_forward kernel in CUDA. 
+Make sure the kernel returns the correct result as the function (The kernel provided to you may contain error, be cautious). Do not use any alternative precision that could result in an incorrect result. 
+The kernel will be run on a RTX 4090 GPU with CUDA 12.4.
+
+The Python function that you need to implement is:
+
+def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs matrix multiplication.
+
+    Args:
+        A: Input tensor of shape (M, K).
+        B: Input tensor of shape (K, N).
+
+    Returns:
+        Output tensor of shape (M, N).
+    """
+    return torch.matmul(A, B.T)
+
+
+
+The CUDA kernel that you need to optimize is:
+
+// matrix_multiply_kernel.cu
+#include <torch/extension.h>
+
+__global__ void matmul_kernel(const float *A, const float *B, float *C, int M, int K, int N) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (row < M && col < N) {
+        float value = 0.0f;
+        for (int i = 0; i < K; ++i) {
+            value += A[row * K + i] * B[col * K + i];  // B is transposed in memory access
+        }
+        C[row * N + col] = value;
+    }
+}
+
+torch::Tensor matmul_forward(torch::Tensor A, torch::Tensor B) {
+    auto M = A.size(0);
+    auto K = A.size(1);
+    auto N = B.size(0);
+
+    auto C = torch::zeros({M, N}, A.options());
+
+    dim3 threads(16, 16);
+    dim3 blocks((M + threads.x - 1) / threads.x, (N + threads.y - 1) / threads.y);
+
+    matmul_kernel<<<blocks, threads>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), M, K, N);
+
+    return C;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &matmul_forward, "Matrix multiplication with transposed B");
+}
+
+[2025-04-06 23:25:31] profile.py(231) :   - use_numba_accelerate: False
+[2025-04-06 23:25:31] profile.py(231) :   - use_protected_div: False
+[2025-04-06 23:25:31] profile.py(231) :   - protected_div_delta: 1e-05
+[2025-04-06 23:25:31] profile.py(231) :   - random_seed: None
+[2025-04-06 23:25:31] profile.py(231) :   - timeout_seconds: 300
+[2025-04-06 23:25:31] profile.py(231) :   - exec_code: False
+[2025-04-06 23:25:31] profile.py(231) :   - safe_evaluate: False
+[2025-04-06 23:25:31] profile.py(231) :   - daemon_eval_process: False
+[2025-04-06 23:25:31] profile.py(231) :   - args: Namespace(CUDA_HOME='/usr/local/cuda', CUDA_VER='12.4', GPU_TYPE='RTX 4090', GPU_ARCH='8.9', device='cuda:0', keep_temp=True, res_path='/root/llm4ad/Results/20250405-161548/17_Matmul_with_transposed_B', code_operation='17_Matmul_with_transposed_B', func_code='import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n\ndef module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:\n    """\n    Performs matrix multiplication.\n\n    Args:\n        A: Input tensor of shape (M, K).\n        B: Input tensor of shape (K, N).\n\n    Returns:\n        Output tensor of shape (M, N).\n    """\n    return torch.matmul(A, B.T)\n\n\nclass Model(nn.Module):\n    """\n    Simple model that performs a single matrix multiplication (C = A * B)\n    """\n\n    def __init__(self):\n        super(Model, self).__init__()\n\n    def forward(self, A: torch.Tensor, B: torch.Tensor, fn=module_fn) -> torch.Tensor:\n        return fn(A, B)\n\n\nM = 1024\nK = 4096\nN = 2048\n\ndef get_inputs():\n    A = torch.randn(M, K)\n    B = torch.randn(N, K)\n    return [A, B]\n\ndef get_init_inputs():\n    return []  # No special initialization inputs needed', cuda_code='// matrix_multiply_kernel.cu\n#include <torch/extension.h>\n\n__global__ void matmul_kernel(const float *A, const float *B, float *C, int M, int K, int N) {\n    int row = blockIdx.x * blockDim.x + threadIdx.x;\n    int col = blockIdx.y * blockDim.y + threadIdx.y;\n\n    if (row < M && col < N) {\n        float value = 0.0f;\n        for (int i = 0; i < K; ++i) {\n            value += A[row * K + i] * B[col * K + i];  // B is transposed in memory access\n        }\n        C[row * N + col] = value;\n    }\n}\n\ntorch::Tensor matmul_forward(torch::Tensor A, torch::Tensor B) {\n    auto M = A.size(0);\n    auto K = A.size(1);\n    auto N = B.size(0);\n\n    auto C = torch::zeros({M, N}, A.options());\n\n    dim3 threads(16, 16);\n    dim3 blocks((M + threads.x - 1) / threads.x, (N + threads.y - 1) / threads.y);\n\n    matmul_kernel<<<blocks, threads>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), M, K, N);\n\n    return C;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def("forward", &matmul_forward, "Matrix multiplication with transposed B");\n}')
+[2025-04-06 23:25:31] profile.py(231) :   - func_code: import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs matrix multiplication.
+
+    Args:
+        A: Input tensor of shape (M, K).
+        B: Input tensor of shape (K, N).
+
+    Returns:
+        Output tensor of shape (M, N).
+    """
+    return torch.matmul(A, B.T)
+
+
+class Model(nn.Module):
+    """
+    Simple model that performs a single matrix multiplication (C = A * B)
+    """
+
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, A: torch.Tensor, B: torch.Tensor, fn=module_fn) -> torch.Tensor:
+        return fn(A, B)
+
+
+M = 1024
+K = 4096
+N = 2048
+
+def get_inputs():
+    A = torch.randn(M, K)
+    B = torch.randn(N, K)
+    return [A, B]
+
+def get_init_inputs():
+    return []  # No special initialization inputs needed
+[2025-04-06 23:25:31] profile.py(231) :   - cuda_code: // matrix_multiply_kernel.cu
+#include <torch/extension.h>
+
+__global__ void matmul_kernel(const float *A, const float *B, float *C, int M, int K, int N) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (row < M && col < N) {
+        float value = 0.0f;
+        for (int i = 0; i < K; ++i) {
+            value += A[row * K + i] * B[col * K + i];  // B is transposed in memory access
+        }
+        C[row * N + col] = value;
+    }
+}
+
+torch::Tensor matmul_forward(torch::Tensor A, torch::Tensor B) {
+    auto M = A.size(0);
+    auto K = A.size(1);
+    auto N = B.size(0);
+
+    auto C = torch::zeros({M, N}, A.options());
+
+    dim3 threads(16, 16);
+    dim3 blocks((M + threads.x - 1) / threads.x, (N + threads.y - 1) / threads.y);
+
+    matmul_kernel<<<blocks, threads>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), M, K, N);
+
+    return C;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &matmul_forward, "Matrix multiplication with transposed B");
+}
+[2025-04-06 23:25:31] profile.py(231) :   - gpu_type: RTX 4090
+[2025-04-06 23:25:31] profile.py(231) :   - cuda_version: 12.4
+[2025-04-06 23:25:31] profile.py(231) :   - device: cuda:0
+[2025-04-06 23:25:31] profile.py(233) : ====================================================================
+[2025-04-06 23:25:31] profile.py(234) : Method Parameters
+[2025-04-06 23:25:31] profile.py(235) : --------------------------------------------------------------------
+[2025-04-06 23:25:31] profile.py(236) :   - Method: EoH
+[2025-04-06 23:25:31] profile.py(240) :   - _max_generations: 9
+[2025-04-06 23:25:31] profile.py(240) :   - _max_sample_nums: 45
+[2025-04-06 23:25:31] profile.py(240) :   - _pop_size: 5
+[2025-04-06 23:25:31] profile.py(240) :   - _selection_num: 2
+[2025-04-06 23:25:31] profile.py(240) :   - _use_e2_operator: True
+[2025-04-06 23:25:31] profile.py(240) :   - _use_m1_operator: True
+[2025-04-06 23:25:31] profile.py(240) :   - _use_m2_operator: True
+[2025-04-06 23:25:31] profile.py(240) :   - _num_samplers: 4
+[2025-04-06 23:25:31] profile.py(240) :   - _num_evaluators: 1
+[2025-04-06 23:25:31] profile.py(240) :   - _resume_mode: False
+[2025-04-06 23:25:31] profile.py(240) :   - _initial_sample_nums_max: 50
+[2025-04-06 23:25:31] profile.py(240) :   - _debug_mode: False
+[2025-04-06 23:25:31] profile.py(240) :   - _multi_thread_or_process_eval: thread
+[2025-04-06 23:25:31] profile.py(240) :   - code_type: Kernel
+[2025-04-06 23:25:31] profile.py(240) :   - _py_func_ref: def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs matrix multiplication.
+
+    Args:
+        A: Input tensor of shape (M, K).
+        B: Input tensor of shape (K, N).
+
+    Returns:
+        Output tensor of shape (M, N).
+    """
+    return torch.matmul(A, B.T)
+
+
+[2025-04-06 23:25:31] profile.py(240) :   - _function_to_evolve_name: matmul_forward
+[2025-04-06 23:25:31] profile.py(240) :   - _tot_sample_nums: 0
+[2025-04-06 23:25:31] profile.py(240) :   - _evaluation_executor: <concurrent.futures.thread.ThreadPoolExecutor object at 0x7f3faaf32590>
+[2025-04-06 23:25:31] profile.py(242) : =====================================================================

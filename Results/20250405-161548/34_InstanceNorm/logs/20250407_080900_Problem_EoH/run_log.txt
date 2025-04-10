@@ -1,0 +1,326 @@
+[2025-04-07 10:51:51] profile.py(218) : ====================================================================
+[2025-04-07 10:51:51] profile.py(219) : LLM Parameters
+[2025-04-07 10:51:51] profile.py(220) : --------------------------------------------------------------------
+[2025-04-07 10:51:51] profile.py(221) :   - LLM: HttpsApi
+[2025-04-07 10:51:51] profile.py(224) :   - do_auto_trim: True
+[2025-04-07 10:51:51] profile.py(224) :   - debug_mode: False
+[2025-04-07 10:51:51] profile.py(224) :   - _host: api.deepseek.com
+[2025-04-07 10:51:51] profile.py(224) :   - _key: sk-60c9ae55582545dba2a72c3a4b498e82
+[2025-04-07 10:51:51] profile.py(224) :   - _model: deepseek-chat
+[2025-04-07 10:51:51] profile.py(224) :   - _timeout: 300
+[2025-04-07 10:51:51] profile.py(224) :   - _kwargs: {}
+[2025-04-07 10:51:51] profile.py(224) :   - _cumulative_error: 0
+[2025-04-07 10:51:51] profile.py(225) : ====================================================================
+[2025-04-07 10:51:51] profile.py(226) : Problem Parameters
+[2025-04-07 10:51:51] profile.py(227) : --------------------------------------------------------------------
+[2025-04-07 10:51:51] profile.py(228) :   - Problem: KernelEvaluation
+[2025-04-07 10:51:51] profile.py(231) :   - python_func: def module_fn(x: torch.Tensor, inorm_weight: torch.Tensor, inorm_bias: torch.Tensor) -> torch.Tensor:
+    """
+    Applies Instance Normalization to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of shape (batch_size, num_features, height, width).
+        inorm_weight (torch.Tensor): InstanceNorm weight tensor.
+        inorm_bias (torch.Tensor): InstanceNorm bias tensor.
+
+    Returns:
+        torch.Tensor: Output tensor with Instance Normalization applied, same shape as input.
+    """
+    return F.instance_norm(x, weight=inorm_weight, bias=inorm_bias)
+
+
+[2025-04-07 10:51:51] profile.py(231) :   - operation_name: forward
+[2025-04-07 10:51:51] profile.py(231) :   - task_description: 
+You are a Machine Learning Engineer trying to reduce the runtime of a forward kernel in CUDA. 
+Make sure the kernel returns the correct result as the function (The kernel provided to you may contain error, be cautious). Do not use any alternative precision that could result in an incorrect result. 
+The kernel will be run on a RTX 4090 GPU with CUDA 12.4.
+
+The Python function that you need to implement is:
+
+def module_fn(x: torch.Tensor, inorm_weight: torch.Tensor, inorm_bias: torch.Tensor) -> torch.Tensor:
+    """
+    Applies Instance Normalization to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of shape (batch_size, num_features, height, width).
+        inorm_weight (torch.Tensor): InstanceNorm weight tensor.
+        inorm_bias (torch.Tensor): InstanceNorm bias tensor.
+
+    Returns:
+        torch.Tensor: Output tensor with Instance Normalization applied, same shape as input.
+    """
+    return F.instance_norm(x, weight=inorm_weight, bias=inorm_bias)
+
+
+
+The CUDA kernel that you need to optimize is:
+
+// instance_norm_kernel.cu
+#include <torch/extension.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+__global__ void instance_norm_kernel(
+    const float* __restrict__ x,
+    const float* __restrict__ inorm_weight,
+    const float* __restrict__ inorm_bias,
+    float* __restrict__ out,
+    int N, int C, int H, int W
+) {
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int total = N * C * H * W;
+    
+    if (index < total) {
+        // Determine n, c, h, w for this index
+        int n = index / (C * H * W);
+        int c = (index % (C * H * W)) / (H * W);
+        int h = (index % (H * W)) / W;
+        int w = index % W;
+        
+        // Compute mean and variance for the instance (n, c)
+        float mean = 0.0f;
+        float var = 0.0f;
+        int offset = (n * C + c) * H * W;
+        
+        // Compute mean
+        for (int i = 0; i < H * W; i++) {
+            mean += x[offset + i];
+        }
+        mean /= (H * W);
+        
+        // Compute variance
+        for (int i = 0; i < H * W; i++) {
+            float diff = x[offset + i] - mean;
+            var += diff * diff;
+        }
+        var /= (H * W);
+        
+        // Normalize the element at index
+        float inv_std = rsqrtf(var + 1e-5f);
+        int idx = (n * C + c) * H * W + h * W + w;
+        out[idx] = (x[idx] - mean) * inv_std * inorm_weight[c] + inorm_bias[c];
+    }
+}
+
+at::Tensor forward(
+    const at::Tensor& x,
+    const at::Tensor& inorm_weight,
+    const at::Tensor& inorm_bias
+) {
+    TORCH_CHECK(x.dim() == 4, "Input tensor must be 4D");
+    TORCH_CHECK(inorm_weight.dim() == 1 && inorm_weight.size(0) == x.size(1),
+                "Weight tensor must be of shape (C,)");
+    TORCH_CHECK(inorm_bias.dim() == 1 && inorm_bias.size(0) == x.size(1),
+                "Bias tensor must be of shape (C,)");
+
+    int N = x.size(0);
+    int C = x.size(1);
+    int H = x.size(2);
+    int W = x.size(3);
+
+    auto out = at::empty_like(x);
+
+    const int threads = 1024;
+    const int blocks = (N * C * H * W + threads - 1) / threads;
+
+    instance_norm_kernel<<<blocks, threads>>>(
+        x.data_ptr<float>(),
+        inorm_weight.data_ptr<float>(),
+        inorm_bias.data_ptr<float>(),
+        out.data_ptr<float>(),
+        N, C, H, W
+    );
+
+    return out;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &forward, "Instance Norm CUDA forward");
+}
+
+[2025-04-07 10:51:51] profile.py(231) :   - use_numba_accelerate: False
+[2025-04-07 10:51:51] profile.py(231) :   - use_protected_div: False
+[2025-04-07 10:51:51] profile.py(231) :   - protected_div_delta: 1e-05
+[2025-04-07 10:51:51] profile.py(231) :   - random_seed: None
+[2025-04-07 10:51:51] profile.py(231) :   - timeout_seconds: 300
+[2025-04-07 10:51:51] profile.py(231) :   - exec_code: False
+[2025-04-07 10:51:51] profile.py(231) :   - safe_evaluate: False
+[2025-04-07 10:51:51] profile.py(231) :   - daemon_eval_process: False
+[2025-04-07 10:51:51] profile.py(231) :   - args: Namespace(CUDA_HOME='/usr/local/cuda', CUDA_VER='12.4', GPU_TYPE='RTX 4090', GPU_ARCH='8.9', device='cuda:0', keep_temp=True, res_path='/root/llm4ad/Results/20250405-161548/34_InstanceNorm', code_operation='34_InstanceNorm', func_code='import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n\ndef module_fn(x: torch.Tensor, inorm_weight: torch.Tensor, inorm_bias: torch.Tensor) -> torch.Tensor:\n    """\n    Applies Instance Normalization to the input tensor.\n\n    Args:\n        x (torch.Tensor): Input tensor of shape (batch_size, num_features, height, width).\n        inorm_weight (torch.Tensor): InstanceNorm weight tensor.\n        inorm_bias (torch.Tensor): InstanceNorm bias tensor.\n\n    Returns:\n        torch.Tensor: Output tensor with Instance Normalization applied, same shape as input.\n    """\n    return F.instance_norm(x, weight=inorm_weight, bias=inorm_bias)\n\n\nclass Model(nn.Module):\n    """\n    Simple model that performs Instance Normalization.\n    """\n\n    def __init__(self, num_features: int):\n        """\n        Initializes the InstanceNorm layer.\n\n        Args:\n            num_features (int): Number of features in the input tensor.\n        """\n        super(Model, self).__init__()\n\n        # Define the parameters for InstanceNorm\n        self.inorm_weight = nn.Parameter(torch.ones(num_features))\n        self.inorm_bias = nn.Parameter(torch.zeros(num_features))\n\n    def forward(self, x: torch.Tensor, fn=module_fn):\n        return fn(x, self.inorm_weight, self.inorm_bias)\n\n\nbatch_size = 16\nfeatures = 64\ndim1 = 256\ndim2 = 256\n\n\ndef get_inputs():\n    x = torch.randn(batch_size, features, dim1, dim2)\n    return [x]\n\n\ndef get_init_inputs():\n    return [features]', cuda_code='// instance_norm_kernel.cu\n#include <torch/extension.h>\n#include <cuda.h>\n#include <cuda_runtime.h>\n\n__global__ void instance_norm_kernel(\n    const float* __restrict__ x,\n    const float* __restrict__ inorm_weight,\n    const float* __restrict__ inorm_bias,\n    float* __restrict__ out,\n    int N, int C, int H, int W\n) {\n    int index = blockIdx.x * blockDim.x + threadIdx.x;\n    int total = N * C * H * W;\n    \n    if (index < total) {\n        // Determine n, c, h, w for this index\n        int n = index / (C * H * W);\n        int c = (index % (C * H * W)) / (H * W);\n        int h = (index % (H * W)) / W;\n        int w = index % W;\n        \n        // Compute mean and variance for the instance (n, c)\n        float mean = 0.0f;\n        float var = 0.0f;\n        int offset = (n * C + c) * H * W;\n        \n        // Compute mean\n        for (int i = 0; i < H * W; i++) {\n            mean += x[offset + i];\n        }\n        mean /= (H * W);\n        \n        // Compute variance\n        for (int i = 0; i < H * W; i++) {\n            float diff = x[offset + i] - mean;\n            var += diff * diff;\n        }\n        var /= (H * W);\n        \n        // Normalize the element at index\n        float inv_std = rsqrtf(var + 1e-5f);\n        int idx = (n * C + c) * H * W + h * W + w;\n        out[idx] = (x[idx] - mean) * inv_std * inorm_weight[c] + inorm_bias[c];\n    }\n}\n\nat::Tensor forward(\n    const at::Tensor& x,\n    const at::Tensor& inorm_weight,\n    const at::Tensor& inorm_bias\n) {\n    TORCH_CHECK(x.dim() == 4, "Input tensor must be 4D");\n    TORCH_CHECK(inorm_weight.dim() == 1 && inorm_weight.size(0) == x.size(1),\n                "Weight tensor must be of shape (C,)");\n    TORCH_CHECK(inorm_bias.dim() == 1 && inorm_bias.size(0) == x.size(1),\n                "Bias tensor must be of shape (C,)");\n\n    int N = x.size(0);\n    int C = x.size(1);\n    int H = x.size(2);\n    int W = x.size(3);\n\n    auto out = at::empty_like(x);\n\n    const int threads = 1024;\n    const int blocks = (N * C * H * W + threads - 1) / threads;\n\n    instance_norm_kernel<<<blocks, threads>>>(\n        x.data_ptr<float>(),\n        inorm_weight.data_ptr<float>(),\n        inorm_bias.data_ptr<float>(),\n        out.data_ptr<float>(),\n        N, C, H, W\n    );\n\n    return out;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def("forward", &forward, "Instance Norm CUDA forward");\n}')
+[2025-04-07 10:51:51] profile.py(231) :   - func_code: import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(x: torch.Tensor, inorm_weight: torch.Tensor, inorm_bias: torch.Tensor) -> torch.Tensor:
+    """
+    Applies Instance Normalization to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of shape (batch_size, num_features, height, width).
+        inorm_weight (torch.Tensor): InstanceNorm weight tensor.
+        inorm_bias (torch.Tensor): InstanceNorm bias tensor.
+
+    Returns:
+        torch.Tensor: Output tensor with Instance Normalization applied, same shape as input.
+    """
+    return F.instance_norm(x, weight=inorm_weight, bias=inorm_bias)
+
+
+class Model(nn.Module):
+    """
+    Simple model that performs Instance Normalization.
+    """
+
+    def __init__(self, num_features: int):
+        """
+        Initializes the InstanceNorm layer.
+
+        Args:
+            num_features (int): Number of features in the input tensor.
+        """
+        super(Model, self).__init__()
+
+        # Define the parameters for InstanceNorm
+        self.inorm_weight = nn.Parameter(torch.ones(num_features))
+        self.inorm_bias = nn.Parameter(torch.zeros(num_features))
+
+    def forward(self, x: torch.Tensor, fn=module_fn):
+        return fn(x, self.inorm_weight, self.inorm_bias)
+
+
+batch_size = 16
+features = 64
+dim1 = 256
+dim2 = 256
+
+
+def get_inputs():
+    x = torch.randn(batch_size, features, dim1, dim2)
+    return [x]
+
+
+def get_init_inputs():
+    return [features]
+[2025-04-07 10:51:51] profile.py(231) :   - cuda_code: // instance_norm_kernel.cu
+#include <torch/extension.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+__global__ void instance_norm_kernel(
+    const float* __restrict__ x,
+    const float* __restrict__ inorm_weight,
+    const float* __restrict__ inorm_bias,
+    float* __restrict__ out,
+    int N, int C, int H, int W
+) {
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int total = N * C * H * W;
+    
+    if (index < total) {
+        // Determine n, c, h, w for this index
+        int n = index / (C * H * W);
+        int c = (index % (C * H * W)) / (H * W);
+        int h = (index % (H * W)) / W;
+        int w = index % W;
+        
+        // Compute mean and variance for the instance (n, c)
+        float mean = 0.0f;
+        float var = 0.0f;
+        int offset = (n * C + c) * H * W;
+        
+        // Compute mean
+        for (int i = 0; i < H * W; i++) {
+            mean += x[offset + i];
+        }
+        mean /= (H * W);
+        
+        // Compute variance
+        for (int i = 0; i < H * W; i++) {
+            float diff = x[offset + i] - mean;
+            var += diff * diff;
+        }
+        var /= (H * W);
+        
+        // Normalize the element at index
+        float inv_std = rsqrtf(var + 1e-5f);
+        int idx = (n * C + c) * H * W + h * W + w;
+        out[idx] = (x[idx] - mean) * inv_std * inorm_weight[c] + inorm_bias[c];
+    }
+}
+
+at::Tensor forward(
+    const at::Tensor& x,
+    const at::Tensor& inorm_weight,
+    const at::Tensor& inorm_bias
+) {
+    TORCH_CHECK(x.dim() == 4, "Input tensor must be 4D");
+    TORCH_CHECK(inorm_weight.dim() == 1 && inorm_weight.size(0) == x.size(1),
+                "Weight tensor must be of shape (C,)");
+    TORCH_CHECK(inorm_bias.dim() == 1 && inorm_bias.size(0) == x.size(1),
+                "Bias tensor must be of shape (C,)");
+
+    int N = x.size(0);
+    int C = x.size(1);
+    int H = x.size(2);
+    int W = x.size(3);
+
+    auto out = at::empty_like(x);
+
+    const int threads = 1024;
+    const int blocks = (N * C * H * W + threads - 1) / threads;
+
+    instance_norm_kernel<<<blocks, threads>>>(
+        x.data_ptr<float>(),
+        inorm_weight.data_ptr<float>(),
+        inorm_bias.data_ptr<float>(),
+        out.data_ptr<float>(),
+        N, C, H, W
+    );
+
+    return out;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &forward, "Instance Norm CUDA forward");
+}
+[2025-04-07 10:51:51] profile.py(231) :   - gpu_type: RTX 4090
+[2025-04-07 10:51:51] profile.py(231) :   - cuda_version: 12.4
+[2025-04-07 10:51:51] profile.py(231) :   - device: cuda:0
+[2025-04-07 10:51:51] profile.py(233) : ====================================================================
+[2025-04-07 10:51:51] profile.py(234) : Method Parameters
+[2025-04-07 10:51:51] profile.py(235) : --------------------------------------------------------------------
+[2025-04-07 10:51:51] profile.py(236) :   - Method: EoH
+[2025-04-07 10:51:51] profile.py(240) :   - _max_generations: 9
+[2025-04-07 10:51:51] profile.py(240) :   - _max_sample_nums: 45
+[2025-04-07 10:51:51] profile.py(240) :   - _pop_size: 5
+[2025-04-07 10:51:51] profile.py(240) :   - _selection_num: 2
+[2025-04-07 10:51:51] profile.py(240) :   - _use_e2_operator: True
+[2025-04-07 10:51:51] profile.py(240) :   - _use_m1_operator: True
+[2025-04-07 10:51:51] profile.py(240) :   - _use_m2_operator: True
+[2025-04-07 10:51:51] profile.py(240) :   - _num_samplers: 4
+[2025-04-07 10:51:51] profile.py(240) :   - _num_evaluators: 1
+[2025-04-07 10:51:51] profile.py(240) :   - _resume_mode: False
+[2025-04-07 10:51:51] profile.py(240) :   - _initial_sample_nums_max: 50
+[2025-04-07 10:51:51] profile.py(240) :   - _debug_mode: False
+[2025-04-07 10:51:51] profile.py(240) :   - _multi_thread_or_process_eval: thread
+[2025-04-07 10:51:51] profile.py(240) :   - code_type: Kernel
+[2025-04-07 10:51:51] profile.py(240) :   - _py_func_ref: def module_fn(x: torch.Tensor, inorm_weight: torch.Tensor, inorm_bias: torch.Tensor) -> torch.Tensor:
+    """
+    Applies Instance Normalization to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of shape (batch_size, num_features, height, width).
+        inorm_weight (torch.Tensor): InstanceNorm weight tensor.
+        inorm_bias (torch.Tensor): InstanceNorm bias tensor.
+
+    Returns:
+        torch.Tensor: Output tensor with Instance Normalization applied, same shape as input.
+    """
+    return F.instance_norm(x, weight=inorm_weight, bias=inorm_bias)
+
+
+[2025-04-07 10:51:51] profile.py(240) :   - _function_to_evolve_name: forward
+[2025-04-07 10:51:51] profile.py(240) :   - _tot_sample_nums: 0
+[2025-04-07 10:51:51] profile.py(240) :   - _evaluation_executor: <concurrent.futures.thread.ThreadPoolExecutor object at 0x7f262635a250>
+[2025-04-07 10:51:51] profile.py(242) : =====================================================================

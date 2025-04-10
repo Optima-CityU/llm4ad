@@ -1,0 +1,229 @@
+[2025-04-07 05:30:34] profile.py(218) : ====================================================================
+[2025-04-07 05:30:34] profile.py(219) : LLM Parameters
+[2025-04-07 05:30:34] profile.py(220) : --------------------------------------------------------------------
+[2025-04-07 05:30:34] profile.py(221) :   - LLM: HttpsApi
+[2025-04-07 05:30:34] profile.py(224) :   - do_auto_trim: True
+[2025-04-07 05:30:34] profile.py(224) :   - debug_mode: False
+[2025-04-07 05:30:34] profile.py(224) :   - _host: api.deepseek.com
+[2025-04-07 05:30:34] profile.py(224) :   - _key: sk-60c9ae55582545dba2a72c3a4b498e82
+[2025-04-07 05:30:34] profile.py(224) :   - _model: deepseek-chat
+[2025-04-07 05:30:34] profile.py(224) :   - _timeout: 300
+[2025-04-07 05:30:34] profile.py(224) :   - _kwargs: {}
+[2025-04-07 05:30:34] profile.py(224) :   - _cumulative_error: 0
+[2025-04-07 05:30:34] profile.py(225) : ====================================================================
+[2025-04-07 05:30:34] profile.py(226) : Problem Parameters
+[2025-04-07 05:30:34] profile.py(227) : --------------------------------------------------------------------
+[2025-04-07 05:30:34] profile.py(228) :   - Problem: KernelEvaluation
+[2025-04-07 05:30:34] profile.py(231) :   - python_func: def module_fn(x: torch.Tensor) -> torch.Tensor:
+    """
+    Applies GELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+
+    Returns:
+        torch.Tensor: Output tensor with GELU applied, same shape as input.
+    """
+    return F.gelu(x)
+
+
+[2025-04-07 05:30:34] profile.py(231) :   - operation_name: gelu_forward
+[2025-04-07 05:30:34] profile.py(231) :   - task_description: 
+You are a Machine Learning Engineer trying to reduce the runtime of a gelu_forward kernel in CUDA. 
+Make sure the kernel returns the correct result as the function (The kernel provided to you may contain error, be cautious). Do not use any alternative precision that could result in an incorrect result. 
+The kernel will be run on a RTX 4090 GPU with CUDA 12.4.
+
+The Python function that you need to implement is:
+
+def module_fn(x: torch.Tensor) -> torch.Tensor:
+    """
+    Applies GELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+
+    Returns:
+        torch.Tensor: Output tensor with GELU applied, same shape as input.
+    """
+    return F.gelu(x)
+
+
+
+The CUDA kernel that you need to optimize is:
+
+#include <torch/extension.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cmath>
+
+// Device function to compute GELU activation (approximation)
+template <typename scalar_t>
+__device__ __forceinline__ scalar_t gelu(scalar_t x) {
+    const scalar_t sqrt_2_over_pi = 0.7978845608028654; // sqrt(2/pi)
+    return static_cast<scalar_t>(0.5) * x * (static_cast<scalar_t>(1.0) +
+           tanh(sqrt_2_over_pi * (x + static_cast<scalar_t>(0.044715) * x * x * x)));
+}
+
+// CUDA kernel for applying GELU activation element-wise
+template <typename scalar_t>
+__global__ void gelu_kernel(const scalar_t* __restrict__ input,
+                            scalar_t* __restrict__ output,
+                            const size_t numel) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index < numel) {
+        const scalar_t x = input[index];
+        output[index] = gelu(x);
+    }
+}
+
+// Host function to launch the GELU kernel
+torch::Tensor gelu_forward(torch::Tensor input) {
+    auto output = torch::empty_like(input);
+    const size_t numel = input.numel();
+    const int threads = 1024;
+    const int blocks = (numel + threads - 1) / threads;
+
+    AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "gelu_forward_cuda", ([&] {
+        gelu_kernel<scalar_t><<<blocks, threads>>>(input.data_ptr<scalar_t>(),
+                                                     output.data_ptr<scalar_t>(),
+                                                     numel);
+    }));
+
+    return output;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &gelu_forward, "GELU activation forward (CUDA)");
+}
+
+[2025-04-07 05:30:34] profile.py(231) :   - use_numba_accelerate: False
+[2025-04-07 05:30:34] profile.py(231) :   - use_protected_div: False
+[2025-04-07 05:30:34] profile.py(231) :   - protected_div_delta: 1e-05
+[2025-04-07 05:30:34] profile.py(231) :   - random_seed: None
+[2025-04-07 05:30:34] profile.py(231) :   - timeout_seconds: 300
+[2025-04-07 05:30:34] profile.py(231) :   - exec_code: False
+[2025-04-07 05:30:34] profile.py(231) :   - safe_evaluate: False
+[2025-04-07 05:30:34] profile.py(231) :   - daemon_eval_process: False
+[2025-04-07 05:30:34] profile.py(231) :   - args: Namespace(CUDA_HOME='/usr/local/cuda', CUDA_VER='12.4', GPU_TYPE='RTX 4090', GPU_ARCH='8.9', device='cuda:0', keep_temp=True, res_path='/root/llm4ad/Results/20250405-161548/26_GELU_', code_operation='26_GELU_', func_code='import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n\ndef module_fn(x: torch.Tensor) -> torch.Tensor:\n    """\n    Applies GELU activation to the input tensor.\n\n    Args:\n        x (torch.Tensor): Input tensor of any shape.\n\n    Returns:\n        torch.Tensor: Output tensor with GELU applied, same shape as input.\n    """\n    return F.gelu(x)\n\n\nclass Model(nn.Module):\n    """\n    Simple model that performs a GELU activation.\n    """\n    def __init__(self):\n        super(Model, self).__init__()\n\n    def forward(self, x: torch.Tensor, fn=module_fn) -> torch.Tensor:\n        return fn(x)\n\n\nbatch_size = 16\ndim = 16384\n\n\ndef get_inputs():\n    x = torch.randn(batch_size, dim)\n    return [x]\n\n\ndef get_init_inputs():\n    return []  # No special initialization inputs needed', cuda_code='#include <torch/extension.h>\n#include <cuda.h>\n#include <cuda_runtime.h>\n#include <cmath>\n\n// Device function to compute GELU activation (approximation)\ntemplate <typename scalar_t>\n__device__ __forceinline__ scalar_t gelu(scalar_t x) {\n    const scalar_t sqrt_2_over_pi = 0.7978845608028654; // sqrt(2/pi)\n    return static_cast<scalar_t>(0.5) * x * (static_cast<scalar_t>(1.0) +\n           tanh(sqrt_2_over_pi * (x + static_cast<scalar_t>(0.044715) * x * x * x)));\n}\n\n// CUDA kernel for applying GELU activation element-wise\ntemplate <typename scalar_t>\n__global__ void gelu_kernel(const scalar_t* __restrict__ input,\n                            scalar_t* __restrict__ output,\n                            const size_t numel) {\n    const int index = blockIdx.x * blockDim.x + threadIdx.x;\n    if (index < numel) {\n        const scalar_t x = input[index];\n        output[index] = gelu(x);\n    }\n}\n\n// Host function to launch the GELU kernel\ntorch::Tensor gelu_forward(torch::Tensor input) {\n    auto output = torch::empty_like(input);\n    const size_t numel = input.numel();\n    const int threads = 1024;\n    const int blocks = (numel + threads - 1) / threads;\n\n    AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "gelu_forward_cuda", ([&] {\n        gelu_kernel<scalar_t><<<blocks, threads>>>(input.data_ptr<scalar_t>(),\n                                                     output.data_ptr<scalar_t>(),\n                                                     numel);\n    }));\n\n    return output;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def("forward", &gelu_forward, "GELU activation forward (CUDA)");\n}')
+[2025-04-07 05:30:34] profile.py(231) :   - func_code: import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(x: torch.Tensor) -> torch.Tensor:
+    """
+    Applies GELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+
+    Returns:
+        torch.Tensor: Output tensor with GELU applied, same shape as input.
+    """
+    return F.gelu(x)
+
+
+class Model(nn.Module):
+    """
+    Simple model that performs a GELU activation.
+    """
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, x: torch.Tensor, fn=module_fn) -> torch.Tensor:
+        return fn(x)
+
+
+batch_size = 16
+dim = 16384
+
+
+def get_inputs():
+    x = torch.randn(batch_size, dim)
+    return [x]
+
+
+def get_init_inputs():
+    return []  # No special initialization inputs needed
+[2025-04-07 05:30:34] profile.py(231) :   - cuda_code: #include <torch/extension.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cmath>
+
+// Device function to compute GELU activation (approximation)
+template <typename scalar_t>
+__device__ __forceinline__ scalar_t gelu(scalar_t x) {
+    const scalar_t sqrt_2_over_pi = 0.7978845608028654; // sqrt(2/pi)
+    return static_cast<scalar_t>(0.5) * x * (static_cast<scalar_t>(1.0) +
+           tanh(sqrt_2_over_pi * (x + static_cast<scalar_t>(0.044715) * x * x * x)));
+}
+
+// CUDA kernel for applying GELU activation element-wise
+template <typename scalar_t>
+__global__ void gelu_kernel(const scalar_t* __restrict__ input,
+                            scalar_t* __restrict__ output,
+                            const size_t numel) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index < numel) {
+        const scalar_t x = input[index];
+        output[index] = gelu(x);
+    }
+}
+
+// Host function to launch the GELU kernel
+torch::Tensor gelu_forward(torch::Tensor input) {
+    auto output = torch::empty_like(input);
+    const size_t numel = input.numel();
+    const int threads = 1024;
+    const int blocks = (numel + threads - 1) / threads;
+
+    AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "gelu_forward_cuda", ([&] {
+        gelu_kernel<scalar_t><<<blocks, threads>>>(input.data_ptr<scalar_t>(),
+                                                     output.data_ptr<scalar_t>(),
+                                                     numel);
+    }));
+
+    return output;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &gelu_forward, "GELU activation forward (CUDA)");
+}
+[2025-04-07 05:30:34] profile.py(231) :   - gpu_type: RTX 4090
+[2025-04-07 05:30:34] profile.py(231) :   - cuda_version: 12.4
+[2025-04-07 05:30:34] profile.py(231) :   - device: cuda:0
+[2025-04-07 05:30:34] profile.py(233) : ====================================================================
+[2025-04-07 05:30:34] profile.py(234) : Method Parameters
+[2025-04-07 05:30:34] profile.py(235) : --------------------------------------------------------------------
+[2025-04-07 05:30:34] profile.py(236) :   - Method: EoH
+[2025-04-07 05:30:34] profile.py(240) :   - _max_generations: 9
+[2025-04-07 05:30:34] profile.py(240) :   - _max_sample_nums: 45
+[2025-04-07 05:30:34] profile.py(240) :   - _pop_size: 5
+[2025-04-07 05:30:34] profile.py(240) :   - _selection_num: 2
+[2025-04-07 05:30:34] profile.py(240) :   - _use_e2_operator: True
+[2025-04-07 05:30:34] profile.py(240) :   - _use_m1_operator: True
+[2025-04-07 05:30:34] profile.py(240) :   - _use_m2_operator: True
+[2025-04-07 05:30:34] profile.py(240) :   - _num_samplers: 4
+[2025-04-07 05:30:34] profile.py(240) :   - _num_evaluators: 1
+[2025-04-07 05:30:34] profile.py(240) :   - _resume_mode: False
+[2025-04-07 05:30:34] profile.py(240) :   - _initial_sample_nums_max: 50
+[2025-04-07 05:30:34] profile.py(240) :   - _debug_mode: False
+[2025-04-07 05:30:34] profile.py(240) :   - _multi_thread_or_process_eval: thread
+[2025-04-07 05:30:34] profile.py(240) :   - code_type: Kernel
+[2025-04-07 05:30:34] profile.py(240) :   - _py_func_ref: def module_fn(x: torch.Tensor) -> torch.Tensor:
+    """
+    Applies GELU activation to the input tensor.
+
+    Args:
+        x (torch.Tensor): Input tensor of any shape.
+
+    Returns:
+        torch.Tensor: Output tensor with GELU applied, same shape as input.
+    """
+    return F.gelu(x)
+
+
+[2025-04-07 05:30:34] profile.py(240) :   - _function_to_evolve_name: gelu_forward
+[2025-04-07 05:30:34] profile.py(240) :   - _tot_sample_nums: 0
+[2025-04-07 05:30:34] profile.py(240) :   - _evaluation_executor: <concurrent.futures.thread.ThreadPoolExecutor object at 0x7f3faafd8e50>
+[2025-04-07 05:30:34] profile.py(242) : =====================================================================
