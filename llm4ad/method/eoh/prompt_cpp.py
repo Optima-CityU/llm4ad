@@ -26,7 +26,7 @@ class EoHPromptCPP:
         temp_func.body = ''
         # create prompt content
         prompt_content = f'''{task_prompt}
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}. 
+1. First, describe your new implementation and main steps in one sentence. The description must be inside within boxed {{}}. 
 2. Next, give the optimized kernel implementation:
 {str(temp_func)}
 Do not give additional explanations.'''

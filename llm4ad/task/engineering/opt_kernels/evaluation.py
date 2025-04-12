@@ -81,16 +81,34 @@ class KernelEvaluation(Evaluation):
     def _make_task_description(operation_name: str, args, python_func) -> str:
         return f"""
 You are a Machine Learning Engineer trying to reduce the runtime of a {operation_name} kernel in CUDA. 
-Make sure the kernel returns the correct result as the function (The kernel provided to you may contain error, be cautious). Do not use any alternative precision that could result in an incorrect result. 
+The CUDA kernel will be saved in`cuda_fname` and loaded using torch.utils.cpp_extension.load():
+```python
+cuda_fn = load(
+name=task_name,
+sources=[cuda_fname],
+extra_cuda_cflags=["-O3", "--use_fast_math"],
+with_cuda=True,
+verbose=True,
+)
+```
+Later, the function will be called via`cuda_fn = load(name=task_name, ...).forward`.
+Make sure `cuda_fn.forward` returns the same result as `module_fn`. 
+Do not use any alternative precision that could result in an incorrect result. 
 The kernel will be run on a {args.GPU_TYPE} GPU with CUDA {args.CUDA_VER}.
 
-The Python function that you need to implement is:
+The `module_fn` Python function is:
+```python
 
 {str(python_func)}
 
-The CUDA kernel that you need to optimize is:
+```
+
+An example of the CUDA kernel implementation is:
+```
 
 {args.cuda_code}
+
+```
 """
     @staticmethod
     def load_module_from_path(code_path, module_name):
