@@ -37,6 +37,8 @@ from ...base import *
 from .profiler import FunSearchProfiler
 from ...tools.profiler import ProfilerBase
 
+from ...base.opt_kernels import KERFunction,KERProgram, KERTextFunctionProgramConverter
+from ...base.opt_kernels.evaluate import CPPSecureEvaluator
 
 class FunSearch:
     def __init__(self,
@@ -48,6 +50,7 @@ class FunSearch:
                  samples_per_prompt: int = 4,
                  max_sample_nums: Optional[int] = 20,
                  *,
+                 code_type: Literal['Python', 'Kernel'] = 'Kernel',
                  resume_mode: bool = False,
                  debug_mode: bool = False,
                  multi_thread_or_process_eval: Literal['thread', 'process'] = 'thread',
@@ -80,10 +83,22 @@ class FunSearch:
         self._debug_mode = debug_mode
         self._resume_mode = resume_mode
 
+        # # function to be evolved
+        # self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
+        # self._function_to_evolve_name: str = self._function_to_evolve.name
+        # self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
         # function to be evolved
-        self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
-        self._function_to_evolve_name: str = self._function_to_evolve.name
-        self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
+        self.code_type = code_type
+        if code_type == 'Python':
+            self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(
+                self._template_program_str)
+            self._function_to_evolve_name: str = self._function_to_evolve.name
+            self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
+        elif code_type == 'Kernel':
+            self._function_to_evolve = KERTextFunctionProgramConverter.text_to_function(evaluation.cuda_code)
+            self._py_func_ref = KERTextFunctionProgramConverter.text_to_function_py(evaluation.func_code)
+            self._function_to_evolve_name: str = self._function_to_evolve.name
+            self._template_program = KERTextFunctionProgramConverter.text_to_program(evaluation.cuda_code)
 
         # population, sampler, and evaluator
         self.db_config = ProgramsDatabaseConfig()
@@ -94,8 +109,14 @@ class FunSearch:
         )
         self._sampler = SampleTrimmer(llm)
         llm.debug_mode = debug_mode
-        self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
+        if code_type == 'Python':
+            self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
+        elif code_type == 'Kernel':
+            self._evaluator = CPPSecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
+
+
+        # self._sampler = EoHSampler(llm, self._template_program_str, code_type=code_type)
 
         # statistics
         self._tot_sample_nums = 0

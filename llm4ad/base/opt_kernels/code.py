@@ -47,7 +47,7 @@ class _KERProgramVisitor:
         ker_function = KERFunction(
             includes=includes,
             name=operation_name,
-            body=rest,
+            body=code_str,
             func_title=func_title,
         )
         return ker_function
