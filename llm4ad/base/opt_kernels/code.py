@@ -1,17 +1,24 @@
 from __future__ import annotations
 import re
 import copy
-from clang.cindex import Index, CursorKind, TranslationUnit, Config
 from ..code import TextFunctionProgramConverter, Function
 
 import dataclasses
 @dataclasses.dataclass
 class KERFunction:
     """A parsed Kernel function."""
+    includes: str
+    func_title: str
     name: str
     body: str
     def __str__(self) -> str:
-        return self.body
+        if len(self.body) == 0:
+            func_content = ""
+            func_content += f"{self.includes}\n"
+            func_content += f"{self.func_title}\n"
+            return func_content
+        else:
+            return self.body
 
 @dataclasses.dataclass(frozen=True)
 class KERProgram:
@@ -27,46 +34,22 @@ class _KERProgramVisitor:
         self.functions = []
 
     @classmethod
-    def find_returns_in_child(cls, node):
-        if node.kind == CursorKind.RETURN_STMT:
-            print(f"Found return statement at {node.location}")
-
-        # 递归遍历子节点
-        for child in node.get_children():
-            cls.find_returns_in_child(child)
-
-    @classmethod
-    def find_function_definition(cls, node, func_name, code_str):
-        if node.kind == CursorKind.FUNCTION_DECL and node.spelling == func_name:
-            start_line = node.extent.start.line
-
-            def get_line_from_code_str(code_str, line_number):
-                """
-                从 code_str 中获取指定行的内容。
-                """
-                lines = code_str.splitlines()
-                if 1 <= line_number <= len(lines):
-                    return lines[line_number - 1].strip()  # 行号从 1 开始
-                return None
-
-            decl_line = get_line_from_code_str(code_str, start_line)
-            print(decl_line)
-            return decl_line
-        for child in node.get_children():
-            cls.find_function_definition(child, func_name, code_str)
+    def _find_func_title(cls, program_str, operation_name):
+        code_title_re = re.compile(r".*\s+" + operation_name + r"\s*.*{")
+        code_title = code_title_re.findall(program_str)
+        return code_title[0]
 
     @classmethod
     def visit_FunctionDef(cls, code_str: str):
         operation_name = cls._find_operation_name(code_str)
-        # Config.set_library_file(r"C:\Program Files\LLVM\bin\libclang.dll")
-        # index = Index.create()
-        # translation_unit = index.parse('tmp.cpp', args=['-std=c++11'],
-        #                                unsaved_files=[('tmp.cpp', code_str)])
-        # cursor = translation_unit.cursor
-
-        # func_name_line = cls.find_function_definition(cursor, operation_name, code_str)
         includes, rest = cls._extract_includes(code_str)
-        ker_function = KERFunction(name=operation_name, body=code_str)
+        func_title = cls._find_func_title(code_str, operation_name)
+        ker_function = KERFunction(
+            includes=includes,
+            name=operation_name,
+            body=rest,
+            func_title=func_title,
+        )
         return ker_function
 
     @staticmethod

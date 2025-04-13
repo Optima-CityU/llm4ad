@@ -81,30 +81,12 @@ class KernelEvaluation(Evaluation):
     @staticmethod
     def _make_task_description(operation_name: str, args, python_func) -> str:
         return f"""
-You are a Machine Learning Engineer trying to reduce the runtime of a {operation_name} kernel in CUDA. 
-The CUDA kernel will be saved in`cuda_fname` and loaded using torch.utils.cpp_extension.load():
-```python
-cuda_fn = load(
-name=task_name,
-sources=[cuda_fname],
-extra_cuda_cflags=["-O3", "--use_fast_math"],
-with_cuda=True,
-verbose=True,
-)
-```
-Later, the function will be called via`cuda_fn = load(name=task_name, ...).forward`.
-Make sure `cuda_fn.forward` returns the same result as `module_fn`. 
+You are a Machine Learning Engineer trying to optimize the CUDA kernel runtime of a {operation_name} operation bound to the forward pass.
+Make sure the output results of {operation_name} does not change.
 Do not use any alternative precision that could result in an incorrect result. 
 The kernel will be run on a {args.GPU_TYPE} GPU with CUDA {args.CUDA_VER}.
 
-The `module_fn` Python function is:
-```python
-
-{str(python_func)}
-
-```
-
-An example of the CUDA kernel implementation is:
+The CUDA kernel implementation is:
 ```
 
 {args.cuda_code}
@@ -264,10 +246,10 @@ An example of the CUDA kernel implementation is:
                         output_new = model_new(*inputs, fn=cuda_fn.forward)
                         torch.cuda.synchronize(device=self.device)
                         if output.shape != output_new.shape:
-                            self.save_cuda_code_and_error(program_str, e)
+                            self.save_cuda_code_and_error(program_str, "output not match")
                             return None
                         if not torch.allclose(output, output_new, atol=1e-02, rtol=1e-02):
-                            self.save_cuda_code_and_error(program_str, e)
+                            self.save_cuda_code_and_error(program_str, "results not match")
                             return None
                     except Exception as e:
                         self.save_cuda_code_and_error(program_str, e)
@@ -302,5 +284,8 @@ An example of the CUDA kernel implementation is:
         with open(os.path.join(error_dir, f"cuda_code.cu"), "w") as f:
             f.write(cuda_code)
         with open(os.path.join(error_dir, f"error_info.txt"), "w") as f:
-            f.write(error_info)
+            if type(error_info) is not str:
+                f.write(str(error_info))
+            else:
+                f.write(error_info)
 
