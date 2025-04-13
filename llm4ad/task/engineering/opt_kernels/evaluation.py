@@ -21,6 +21,7 @@
 from __future__ import annotations
 import re
 import os
+import time
 import torch
 import random
 import tempfile
@@ -211,6 +212,7 @@ An example of the CUDA kernel implementation is:
                     verbose=False
                 )
             except Exception as e:
+                self.save_cuda_code_and_error(program_str, e)
                 return None
             func_module, func_spec = KernelEvaluation.load_module_from_path(python_func_path, "func_module")
             cuda_module, cuda_spec = KernelEvaluation.load_module_from_path(cuda_func_path, "cu_module")
@@ -228,6 +230,7 @@ An example of the CUDA kernel implementation is:
                     KernelEvaluation.set_seed(0)
                     custom_model = cuda_module.Model(*init_inputs)
                 except Exception as e:
+                    self.save_cuda_code_and_error(program_str, e)
                     return None
 
             # check correctness
@@ -261,10 +264,13 @@ An example of the CUDA kernel implementation is:
                         output_new = model_new(*inputs, fn=cuda_fn.forward)
                         torch.cuda.synchronize(device=self.device)
                         if output.shape != output_new.shape:
+                            self.save_cuda_code_and_error(program_str, e)
                             return None
                         if not torch.allclose(output, output_new, atol=1e-02, rtol=1e-02):
+                            self.save_cuda_code_and_error(program_str, e)
                             return None
                     except Exception as e:
+                        self.save_cuda_code_and_error(program_str, e)
                         return None
 
             # test performance
@@ -288,4 +294,13 @@ An example of the CUDA kernel implementation is:
             )
             runtime_stats = np.mean(elapsed_times)
             return -runtime_stats
+
+    def save_cuda_code_and_error(self, cuda_code, error_info):
+        time_stamp = time.strftime("%Y%m%d-%H%M%S")
+        error_dir = os.path.join(self.args.res_path, f"error_{time_stamp}")
+        os.makedirs(error_dir, exist_ok=True)
+        with open(os.path.join(error_dir, f"cuda_code.cu"), "w") as f:
+            f.write(cuda_code)
+        with open(os.path.join(error_dir, f"error_info.txt"), "w") as f:
+            f.write(error_info)
 
