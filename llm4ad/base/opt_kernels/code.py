@@ -3,6 +3,8 @@ import re
 import copy
 from ..code import TextFunctionProgramConverter, Function
 
+from typing import Any, List, Callable
+
 import dataclasses
 @dataclasses.dataclass
 class KERFunction:
@@ -11,6 +13,9 @@ class KERFunction:
     func_title: str
     name: str
     body: str
+    score: Any | None = None
+    evaluate_time: float | None = None
+    sample_time: float | None = None
     def __str__(self) -> str:
         if len(self.body) == 0:
             func_content = ""
