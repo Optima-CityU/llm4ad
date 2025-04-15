@@ -1,15 +1,15 @@
 import os
 import time
+import natsort
 import argparse
 
-# use the absolute path to avoid the path error
-ABS_PATH = os.path.dirname(os.path.abspath(__file__))
-RES_PATH = os.path.join(ABS_PATH, 'Results')
-DATA_PATH = os.path.join(ABS_PATH, 'init_dataset', 'level1', '1_Square_matrix_multiplication_', "CudaCodeVerify")
+
 
 from llm4ad.task.engineering.opt_kernels import KernelEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
 from llm4ad.method.eoh import EoH, EoHProfiler
+from llm4ad.method.funsearch import FunSearch
+from llm4ad.tools.profiler import ProfilerBase
 
 # from llm4ad.task.engineering.opt_kernels.preprocess.pipeline_func import convert_to_functional_code, translate_into_CUDA_kernel
 
@@ -49,26 +49,46 @@ def main(args):
     #     "host": "api.deepseek.com", "key": "sk-60c9ae55582545dba2a72c3a4b498e82", "timeout": 120
     # }
     # ds_r1_instance = HttpsApi(model="o3-mini", **deepseek_config_dict)
-    o3_llm = HttpsApi(
-        host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
-        model='o3-mini', timeout=200
-    )
-
+    # o3_llm = HttpsApi(
+    #     host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
+    #     model='o3-mini', timeout=200
+    # )
+    #
     llm = HttpsApi(
         host='hk-api.gptbest.vip', key='sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632',
         model='gpt-4o-2024-08-06', timeout=200
     )
 
+    # llm = HttpsApi(
+    #     host='api.deepseek.com', key='sk-60c9ae55582545dba2a72c3a4b498e82',
+    #     model='deepseek-reasoner', timeout=300
+    # )
+    # llm = HttpsApi(
+    #     host='api.deepseek.com', key='sk-60c9ae55582545dba2a72c3a4b498e82',
+    #     model='deepseek-chat', timeout=300
+    # )
+
     task = KernelEvaluation(args)
 
-    method = EoH(
+    # method = EoH(
+    #     llm=llm,
+    #     profiler=EoHProfiler(log_dir=os.path.join(args.res_path, "logs"), log_style='complex'),
+    #     evaluation=task,
+    #     max_sample_nums=45,
+    #     max_generations=9,
+    #     pop_size=5,
+    #     num_samplers=1,
+    #     num_evaluators=1,
+    #     code_type="Kernel"
+    # )
+
+    method = FunSearch(
         llm=llm,
-        profiler=EoHProfiler(log_dir=os.path.join(args.res_path, "logs"), log_style='complex'),
+        profiler=ProfilerBase(log_dir=os.path.join(args.res_path, "logs"), log_style='complex'),
+        # profiler=ProfilerBase(log_dir='logs/funsearch', log_style='simple'),
         evaluation=task,
         max_sample_nums=45,
-        max_generations=9,
-        pop_size=5,
-        num_samplers=4,
+        num_samplers=1,
         num_evaluators=1,
         code_type="Kernel"
     )
@@ -76,20 +96,39 @@ def main(args):
     method.run()
 
 
+# use the absolute path to avoid the path error
+ABS_PATH = os.path.dirname(os.path.abspath(__file__))
+RES_PATH = os.path.join(ABS_PATH, 'Results')
+# DATA_PATH = os.path.join(ABS_PATH, 'init_dataset', 'level1', '1_Square_matrix_multiplication_', "CudaCodeVerify")
+DATA_PATH = os.path.join(ABS_PATH, 'CUDABench', 'level1')
+
 if __name__ == '__main__':
     args = parse_args()
     time_stamp = time.strftime("%Y%m%d-%H%M%S")
-    args.res_path = os.path.join(RES_PATH, time_stamp)
-    os.makedirs(args.res_path, exist_ok=True)
+    # time_stamp = "20250405-161548"
 
-    with open(os.path.join(DATA_PATH, 'func.py'), 'r') as f:
-        func_code = f.read()
+    operation_list = os.listdir(DATA_PATH)
+    operation_list = natsort.natsorted(operation_list)
+    for each_operation in operation_list:
+        args.res_path = os.path.join(RES_PATH, time_stamp, each_operation)
+        if os.path.exists(args.res_path):
+            continue
+        os.makedirs(args.res_path, exist_ok=True)
+        func_file_path = os.path.join(DATA_PATH, each_operation, 'func.py')
+        cuda_file_path = os.path.join(DATA_PATH, each_operation, 'test_cuda_code.cu')
+        if not os.path.exists(func_file_path):
+            continue
 
-    with open(os.path.join(DATA_PATH, 'test_cuda_code.cu'), 'r') as f:
-        cuda_code = f.read()
+        if not os.path.exists(cuda_file_path):
+            continue
 
-    # code_operation = code_file_name[:-3]
-    args.code_operation = '1_Square_matrix_multiplication_'
-    args.func_code = func_code
-    args.cuda_code = cuda_code
-    main(args)
+        with open(func_file_path, 'r') as f:
+            func_code = f.read()
+
+        with open(cuda_file_path, 'r') as f:
+            cuda_code = f.read()
+
+        args.code_operation = each_operation
+        args.func_code = func_code
+        args.cuda_code = cuda_code
+        main(args)

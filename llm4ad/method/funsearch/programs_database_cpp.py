@@ -265,9 +265,7 @@ class Island_cpp:
         header = dataclasses.replace(
             implementations[-1],
             name=new_function_name,
-            body='',
-            docstring=('Improved version of '
-                       f'`{self._function_to_evolve}_v{next_version - 1}`.'),
+            body=''
         )
         versioned_functions.append(header)
 

@@ -1,0 +1,47 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs 4D tensor-matrix multiplication.
+
+    Args:
+        A (torch.Tensor): Input 4D tensor of shape (b, i, j, l)
+        B (torch.Tensor): Input matrix of shape (l, k)
+
+    Returns:
+        torch.Tensor: Output 4D tensor of shape (b, i, j, k)
+    """
+    return torch.einsum("bijl,lk->bijk", A, B)
+
+
+class Model(nn.Module):
+    """
+    Performs 4D tensor-matrix multiplication: 
+        C[b, i, j, k] = sum_l A[b, i, j, l] * B[l, k]
+    """
+
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, A: torch.Tensor, B: torch.Tensor, fn=module_fn) -> torch.Tensor:
+        return fn(A, B)
+
+
+b = 16
+i = 25
+j = 51
+l = 25
+k = 76
+
+
+def get_inputs():
+    A = torch.randn(b, i, j, l)
+    B = torch.randn(l, k)
+    return [A, B]
+
+
+def get_init_inputs():
+    return []  # No special initialization inputs needed

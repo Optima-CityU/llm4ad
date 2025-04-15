@@ -36,6 +36,10 @@ from typing import Literal, Optional
 from .profiler import HillClimbProfiler
 from ...base import *
 
+from ...base.opt_kernels import KERFunction,KERProgram, KERTextFunctionProgramConverter
+from ...base.opt_kernels.evaluate import CPPSecureEvaluator
+from ...tools.profiler import ProfilerBase
+
 
 class HillClimb:
     def __init__(self,
@@ -46,6 +50,7 @@ class HillClimb:
                  num_samplers: int = 4,
                  num_evaluators: int = 4,
                  *,
+                 code_type: Literal['Python', 'Kernel'] = 'Kernel',
                  resume_mode: bool = False,
                  debug_mode: bool = False,
                  multi_thread_or_process_eval: Literal['thread', 'process'] = 'thread',
@@ -78,14 +83,25 @@ class HillClimb:
         self._resume_mode = resume_mode
 
         # function to be evolved
-        self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
-        self._function_to_evolve_name: str = self._function_to_evolve.name
-        self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
+        self.code_type = code_type
+        if code_type == 'Python':
+            self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(
+                self._template_program_str)
+            self._function_to_evolve_name: str = self._function_to_evolve.name
+            self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
+        elif code_type == 'Kernel':
+            self._function_to_evolve = KERTextFunctionProgramConverter.text_to_function(evaluation.cuda_code)
+            self._py_func_ref = KERTextFunctionProgramConverter.text_to_function_py(evaluation.func_code)
+            self._function_to_evolve_name: str = self._function_to_evolve.name
+            self._template_program = KERTextFunctionProgramConverter.text_to_program(evaluation.cuda_code)
 
         # sampler and evaluator
         self._sampler = SampleTrimmer(llm)
         llm.debug_mode = debug_mode
-        self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
+        if code_type == 'Python':
+            self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
+        elif code_type == 'Kernel':
+            self._evaluator = CPPSecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
 
         # statistics
@@ -126,7 +142,10 @@ class HillClimb:
             self._profiler.register_function(self._function_to_evolve)
 
     def _get_prompt(self) -> str:
-        template = TextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
+        if self.code_type == 'Python':
+            template = TextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
+        elif self.code_type == 'Kernel':
+            template = KERTextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
         template.functions[0].name += '_v0'
         func_to_be_complete = copy.deepcopy(self._function_to_evolve)
         func_to_be_complete.name = self._function_to_evolve_name + '_v1'
