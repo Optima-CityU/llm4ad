@@ -40,7 +40,7 @@ class _KERProgramVisitor:
 
     @classmethod
     def _find_func_title(cls, program_str, operation_name):
-        code_title_re = re.compile(r".*\s+" + operation_name + r"\s*.*{")
+        code_title_re = re.compile(r"\n.*\s+" + operation_name + r"\s*[\s\S]*?{")
         code_title = code_title_re.findall(program_str)
         return code_title[0]
 
