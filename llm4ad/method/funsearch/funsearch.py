@@ -32,6 +32,7 @@ import traceback
 from typing import Optional, Literal
 
 from . import programs_database
+from . import programs_database_cpp
 from .config import ProgramsDatabaseConfig
 from ...base import *
 from .profiler import FunSearchProfiler
@@ -102,11 +103,18 @@ class FunSearch:
 
         # population, sampler, and evaluator
         self.db_config = ProgramsDatabaseConfig()
-        self._database = programs_database.ProgramsDatabase(
-            self.db_config,
-            self._template_program,
-            self._function_to_evolve_name
-        )
+        if code_type == 'Python':
+            self._database = programs_database.ProgramsDatabase(
+                self.db_config,
+                self._template_program,
+                self._function_to_evolve_name
+            )
+        else:
+            self._database = programs_database_cpp.ProgramsDatabase(
+                self.db_config,
+                self._template_program,
+                self._function_to_evolve_name
+            )
         self._sampler = SampleTrimmer(llm)
         llm.debug_mode = debug_mode
         if code_type == 'Python':
