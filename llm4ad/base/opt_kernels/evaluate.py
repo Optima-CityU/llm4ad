@@ -42,7 +42,7 @@ class Evaluation(ABC):
             timeout_seconds: int | float = None,
             *,
             exec_code: bool = False,
-            safe_evaluate: bool = False,
+            safe_evaluate: bool = True,  # TODO: RZ: I change the default to True
             daemon_eval_process: bool = False
     ):
         """Evaluation interface for executing generated code.
@@ -134,7 +134,7 @@ class CPPSecureEvaluator:
                  evaluator: Evaluation,
                  debug_mode=False,
                  *,
-                 fork_proc: Literal['auto', 'default'] | bool = 'auto',
+                 fork_proc: Literal['auto', 'default'] | bool = False,  # RZ: Important !!! we must disable forked process here !!!
                  **kwargs):
         assert fork_proc in [True, False, 'auto', 'default']
         self._evaluator = evaluator
