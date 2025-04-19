@@ -154,24 +154,46 @@ class HillClimb:
         #     template = TextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
         # elif self.code_type == 'Kernel':
         #     template = KERTextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
-        prompt = f'I have the following `{self._best_function_found.name}` algorithm implementation:'
-        instruction_prompt = f'''
-Please implement an improved version of `{self._best_function_found.name}` algorithm. \
-To achieve this, you may also improve the CUDA kernel function. \
-Please do not modify the function name and the pybind code snippet. \
-YOU MUST PUT YOUR CODE IN ```cpp  ``` BLOCK.
-For example: 
+        prompt = f"""
+You are a Machine Learning Engineer trying to reduce the runtime of a {self._best_function_found.name} kernel in CUDA. Make sure the kernel returns the correct result. Do not use any alternative precision that could result in an incorrect result. The kernel will be run on a RTX 4090 GPU with CUDA 12.4.
+
+Answer using the following schema:
+
 ```cpp
-#include <...>
-
-__global__ void {self._best_function_found.name}_kernel(...) {{...}}
-
-Your {self._best_function_found.name}` algorithm implementation...
-
-Pybind code...
+[Your {self._best_function_found.name}` kernel implementation]
 ```
-'''
-        prompt = '\n'.join([prompt, str(self._best_function_found), instruction_prompt])
+
+The pybind11 cuda module name has to be the same as in the example.
+MAKE SURE THE PROPOSAL CODE IS VALID CUDA CODE.
+FOLLOW EXACTLY THIS FORMAT. DO NOT ADD ANYTHING ELSE.
+
+Here is the CUDA kernel code example you need to optimize:
+```cpp
+{str(self._best_function_found)}
+```
+
+Propose a new CUDA kernel code which aims to reduce the runtime of the operation, while ensuring the kernel returns the correct result.
+
+
+"""
+#         prompt = f'I have the following `{self._best_function_found.name}` algorithm implementation:'
+#         instruction_prompt = f'''
+# Please implement an improved version of `{self._best_function_found.name}` algorithm. \
+# To achieve this, you may also improve the CUDA kernel function. \
+# Please do not modify the function name and the pybind code snippet. \
+# YOU MUST PUT YOUR CODE IN ```cpp  ``` BLOCK.
+# For example:
+# ```cpp
+# #include <...>
+#
+# __global__ void {self._best_function_found.name}_kernel(...) {{...}}
+#
+# Your {self._best_function_found.name}` algorithm implementation...
+#
+# Pybind code...
+# ```
+# '''
+#         prompt = '\n'.join([prompt, str(self._best_function_found), instruction_prompt])
         return prompt
 
     def _sample_evaluate_register(self):

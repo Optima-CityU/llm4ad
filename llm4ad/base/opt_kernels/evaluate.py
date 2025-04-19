@@ -173,7 +173,7 @@ class CPPSecureEvaluator:
             # function_name = KERTextFunctionProgramConverter.text_to_function(program_str).name
             function_name = ""
 
-            program_str = self._modify_program_code(program_str)
+            # program_str = self._modify_program_code(program_str)
             if self._debug_mode:
                 print(f'DEBUG: evaluated program:\n{program_str}\n')
 
