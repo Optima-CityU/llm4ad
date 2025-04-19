@@ -17,8 +17,9 @@
 # --------------------------------------------------------------------------
 
 
-
 from __future__ import annotations
+
+import logging
 import re
 import os
 import time
@@ -34,10 +35,7 @@ from typing import Any
 from llm4ad.base.opt_kernels.evaluate import Evaluation
 from llm4ad.base.code import TextFunctionProgramConverter
 
-
-
 __all__ = ['KernelEvaluation']
-
 
 
 class KernelEvaluation(Evaluation):
@@ -70,7 +68,6 @@ class KernelEvaluation(Evaluation):
         self.cuda_version = args.CUDA_VER
         self.device = args.device
 
-
     @staticmethod
     def _find_operation_name(cuda_code: str) -> str:
         pattern = r'm\.def\([^,]+,\s*&(\w+)'
@@ -93,6 +90,7 @@ The CUDA kernel implementation is:
 
 ```
 """
+
     @staticmethod
     def load_module_from_path(code_path, module_name):
         spec = importlib.util.spec_from_file_location(module_name, code_path)
@@ -175,7 +173,16 @@ The CUDA kernel implementation is:
             elapsed_times.append(elapsed_time_ms)
 
         return elapsed_times
+
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
+        # ------------------------------------------------------------------------------------
+        # RZ: always return -10 for debugging.
+        # ------------------------------------------------------------------------------------
+        # logging.warning('RZ: Always return -10 for the convenience of debugging. '
+        #                 'You can find me at line 178 in `evaluation.py`.')
+        # return -10
+        # ------------------------------------------------------------------------------------
+
         with tempfile.TemporaryDirectory(dir=self.args.res_path) as temp_dir:
             cuda_code_path = os.path.join(temp_dir, "cuda_code.cu")
             python_func_path = os.path.join(temp_dir, "func.py")
@@ -288,4 +295,3 @@ The CUDA kernel implementation is:
                 f.write(str(error_info))
             else:
                 f.write(error_info)
-

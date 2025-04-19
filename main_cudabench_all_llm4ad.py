@@ -91,7 +91,7 @@ DATA_PATH = os.path.join(ABS_PATH, 'CUDABench', 'level1')
 if __name__ == '__main__':
     args = parse_args()
     # time_stamp = time.strftime("%Y%m%d-%H%M%S")
-    time_stamp = "20250413-173510"
+    time_stamp = "20250419-173510"
 
     operation_list = os.listdir(DATA_PATH)
     operation_list = natsort.natsorted(operation_list)

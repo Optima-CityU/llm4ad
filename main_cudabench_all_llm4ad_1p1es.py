@@ -3,13 +3,12 @@ import time
 import natsort
 import argparse
 
-
-
 from llm4ad.task.engineering.opt_kernels import KernelEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
 from llm4ad.method.eoh import EoH, EoHProfiler
 from llm4ad.method.hillclimb import HillClimb
 from llm4ad.tools.profiler import ProfilerBase
+
 
 # from llm4ad.task.engineering.opt_kernels.preprocess.pipeline_func import convert_to_functional_code, translate_into_CUDA_kernel
 
@@ -32,11 +31,11 @@ def parse_args():
     parser.add_argument('--GPU_TYPE', type=str, default="RTX 4090", help='gpu type')
     parser.add_argument('--GPU_ARCH', type=str, default="8.9", help='gpu arch')
 
-
     parser.add_argument("--device", type=str, default="cuda:0", help="device")
     parser.add_argument('--keep_temp', choices=[True, False], default=True, help='keep_temp')
     args = parser.parse_args()
     return args
+
 
 def main(args):
     os.environ["CUDA_HOME"] = args.CUDA_HOME
@@ -72,12 +71,13 @@ def main(args):
 
     hillclimb = HillClimb(
         llm=llm,
-        profiler=ProfilerBase(log_dir='logs/hillclimb', log_style='simple'),
+        profiler=ProfilerBase(log_dir='logs/hillclimb_run1', log_style='complex', create_random_path=False),
         evaluation=task,
-        max_sample_nums=10,
+        max_sample_nums=45,
         num_samplers=1,
         num_evaluators=1,
-        code_type="Kernel"
+        code_type="Kernel",
+        debug_mode=True
     )
     hillclimb.run()
 
@@ -94,6 +94,7 @@ def main(args):
     # )
     #
     # method.run()
+
 
 # use the absolute path to avoid the path error
 ABS_PATH = os.path.dirname(os.path.abspath(__file__))

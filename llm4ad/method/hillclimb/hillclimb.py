@@ -36,7 +36,7 @@ from typing import Literal, Optional
 from .profiler import HillClimbProfiler
 from ...base import *
 
-from ...base.opt_kernels import KERFunction,KERProgram, KERTextFunctionProgramConverter
+from ...base.opt_kernels import KERFunction, KERProgram, KERTextFunctionProgramConverter
 from ...base.opt_kernels.evaluate import CPPSecureEvaluator
 from ...tools.profiler import ProfilerBase
 
@@ -96,7 +96,15 @@ class HillClimb:
             self._template_program = KERTextFunctionProgramConverter.text_to_program(evaluation.cuda_code)
 
         # sampler and evaluator
-        self._sampler = SampleTrimmer(llm)
+
+        # ------------------------------------------------------------------------------------
+        # RZ: disable SamplerTrimmer as it only support Python Code now.
+        # ------------------------------------------------------------------------------------
+        # self._sampler = SampleTrimmer(llm)
+        # ------------------------------------------------------------------------------------
+        self._sampler = llm
+        # ------------------------------------------------------------------------------------
+
         llm.debug_mode = debug_mode
         if code_type == 'Python':
             self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
@@ -142,16 +150,29 @@ class HillClimb:
             self._profiler.register_function(self._function_to_evolve)
 
     def _get_prompt(self) -> str:
-        if self.code_type == 'Python':
-            template = TextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
-        elif self.code_type == 'Kernel':
-            template = KERTextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
-        template.functions[0].name += '_v0'
-        func_to_be_complete = copy.deepcopy(self._function_to_evolve)
-        func_to_be_complete.name = self._function_to_evolve_name + '_v1'
-        func_to_be_complete.docstring = f'    """Improved version of \'{self._function_to_evolve_name}_v0\'."""'
-        func_to_be_complete.body = ''
-        return '\n'.join([str(template), str(func_to_be_complete)])
+        # if self.code_type == 'Python':
+        #     template = TextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
+        # elif self.code_type == 'Kernel':
+        #     template = KERTextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
+        prompt = f'I have the following `{self._best_function_found.name}` algorithm implementation:'
+        instruction_prompt = f'''
+Please implement an improved version of `{self._best_function_found.name}` algorithm. \
+To achieve this, you may also improve the CUDA kernel function. \
+Please do not modify the function name and the pybind code snippet. \
+YOU MUST PUT YOUR CODE IN ```cpp  ``` BLOCK.
+For example: 
+```cpp
+#include <...>
+
+__global__ void {self._best_function_found.name}_kernel(...) {{...}}
+
+Your {self._best_function_found.name}` algorithm implementation...
+
+Pybind code...
+```
+'''
+        prompt = '\n'.join([prompt, str(self._best_function_found), instruction_prompt])
+        return prompt
 
     def _sample_evaluate_register(self):
         while (self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums):
@@ -166,10 +187,22 @@ class HillClimb:
                 # convert to program instance
                 programs_to_be_eval = []
                 for func in sampled_funcs:
-                    program = SampleTrimmer.sample_to_program(func, self._template_program)
-                    # if sample to program success
-                    if program is not None:
-                        programs_to_be_eval.append(program)
+                    # ------------------------------------------------------------------------------------
+                    # RZ: disable SampleTrimmer
+                    # ------------------------------------------------------------------------------------
+                    # program = SampleTrimmer.sample_to_program(func, self._template_program)
+                    # ------------------------------------------------------------------------------------
+                    # RZ: here we trim the code between```cpp ``` block
+                    # ------------------------------------------------------------------------------------
+                    if '```cpp' in func:
+                        snippet = func.split('```cpp')[1]
+                        if '```' in snippet:
+                            snippet = snippet.split('```')[0]
+                            program = KERTextFunctionProgramConverter.text_to_program(snippet)
+                            # if convert sample to program success, we put it to programs_to_be_eval
+                            if program is not None:
+                                programs_to_be_eval.append(program)
+                    # ------------------------------------------------------------------------------------
 
                 # submit tasks to the thread pool and evaluate
                 futures = []
