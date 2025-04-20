@@ -78,16 +78,15 @@ class KernelEvaluation(Evaluation):
     @staticmethod
     def _make_task_description(operation_name: str, args, python_func) -> str:
         return f"""
-You are a Machine Learning Engineer trying to optimize the CUDA kernel runtime of a {operation_name} operation bound to the forward pass.
-Make sure the output results of {operation_name} does not change.
-Do not use any alternative precision that could result in an incorrect result. 
-The kernel will be run on a {args.GPU_TYPE} GPU with CUDA {args.CUDA_VER}.
+You are a Machine Learning Engineer trying to reduce the runtime of a {operation_name} kernel in CUDA. Make sure the kernel returns the correct result. Do not use any alternative precision that could result in an incorrect result. The kernel will be run on a {args.GPU_TYPE} GPU with CUDA {args.CUDA_VER}.
 
-The CUDA kernel implementation is:
-```
+The pybind11 cuda module name has to be the same as in the example.
+MAKE SURE THE PROPOSAL CODE IS VALID CUDA CODE.
+FOLLOW EXACTLY THIS FORMAT. DO NOT ADD ANYTHING ELSE.
 
+Here is the CUDA kernel code example you need to optimize:
+```cpp
 {args.cuda_code}
-
 ```
 """
 

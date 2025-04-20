@@ -28,7 +28,9 @@ class EoHPromptCPP:
         prompt_content = f'''{task_prompt}
 1. First, describe your new implementation and main steps in one sentence. The description must be inside within boxed {{}}. 
 2. Next, give the optimized kernel implementation:
-{str(temp_func)}
+```cpp
+[Your kernel implementation]
+```
 Do not give additional explanations.'''
         return prompt_content
 
@@ -51,7 +53,9 @@ I have {len(indivs)} existing kernel implementations with their codes as follows
 Please help me create a new kernel implementation that has a totally different form from the given ones. 
 1. First, describe your new kernel implementation and main steps in one sentence. The description must be inside within boxed {{}}.
 2. Next, implement the kernel:
-{str(temp_func)}
+```cpp
+[Your kernel implementation]
+```
 Do not give additional explanations.'''
         return prompt_content
 
@@ -76,7 +80,9 @@ Please help me create a new kernel implementation that has a totally different f
 1. Firstly, identify the common backbone idea in the provided kernel implementations. 
 2. Secondly, based on the backbone idea describe your new kernel implementation in one sentence. The description must be inside within boxed {{}}.
 3. Thirdly, implement the kernel:
-{str(temp_func)}
+```cpp
+[Your kernel implementation]
+```
 Do not give additional explanations.'''
         return prompt_content
 
@@ -96,7 +102,9 @@ Code:
 Please assist me in creating a new kernel implementation that has a different form but can be a modified version of the kernel implementation provided.
 1. First, describe your new kernel implementation and main steps in one sentence. The description must be inside within boxed {{}}.
 2. Next, implement the kernel:
-{str(temp_func)}
+```cpp
+[Your kernel implementation]
+```
 Do not give additional explanations.'''
         return prompt_content
 
@@ -115,6 +123,8 @@ Code:
 Please identify the main kernel implementation parameters and assist me in creating a new kernel implementation that has a different parameter settings of the kernel implementation provided.
 1. First, describe your new kernel implementation and main steps in one sentence. The description must be inside within boxed {{}}.
 2. Next, implement the kernel:
-{str(temp_func)}
+```cpp
+[Your kernel implementation]
+```
 Do not give additional explanations.'''
         return prompt_content
