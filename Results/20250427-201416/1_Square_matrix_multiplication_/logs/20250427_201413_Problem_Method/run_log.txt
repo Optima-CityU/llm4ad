@@ -1,0 +1,189 @@
+[2025-04-27 20:14:16] profile.py(218) : ====================================================================
+[2025-04-27 20:14:16] profile.py(219) : LLM Parameters
+[2025-04-27 20:14:16] profile.py(220) : --------------------------------------------------------------------
+[2025-04-27 20:14:16] profile.py(221) :   - LLM: HttpsApi
+[2025-04-27 20:14:16] profile.py(224) :   - do_auto_trim: True
+[2025-04-27 20:14:16] profile.py(224) :   - debug_mode: False
+[2025-04-27 20:14:16] profile.py(224) :   - _host: hk-api.gptbest.vip
+[2025-04-27 20:14:16] profile.py(224) :   - _key: sk-le1LLTBIQGMfP47XCb924e88919c456aB21eB5Af20E05632
+[2025-04-27 20:14:16] profile.py(224) :   - _model: gpt-4o-2024-08-06
+[2025-04-27 20:14:16] profile.py(224) :   - _timeout: 200
+[2025-04-27 20:14:16] profile.py(224) :   - _kwargs: {}
+[2025-04-27 20:14:16] profile.py(224) :   - _cumulative_error: 0
+[2025-04-27 20:14:16] profile.py(225) : ====================================================================
+[2025-04-27 20:14:16] profile.py(226) : Problem Parameters
+[2025-04-27 20:14:16] profile.py(227) : --------------------------------------------------------------------
+[2025-04-27 20:14:16] profile.py(228) :   - Problem: KernelEvaluation
+[2025-04-27 20:14:16] profile.py(231) :   - python_func: def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs the matrix multiplication of A and B.
+
+    Args:
+        A (torch.Tensor): Input matrix A of shape (N, N).
+        B (torch.Tensor): Input matrix B of shape (N, N).
+
+    Returns:
+        torch.Tensor: Output matrix of shape (N, N).
+    """
+    return torch.matmul(A, B)
+
+
+[2025-04-27 20:14:16] profile.py(231) :   - operation_name: matmul_cuda
+[2025-04-27 20:14:16] profile.py(231) :   - task_description: 
+You are a Machine Learning Engineer trying to reduce the runtime of a matmul_cuda kernel in CUDA. Make sure the kernel returns the correct result. Do not use any alternative precision that could result in an incorrect result. The kernel will be run on a RTX 4090 GPU with CUDA 12.4.
+
+The pybind11 cuda module name has to be the same as in the example.
+MAKE SURE THE PROPOSAL CODE IS VALID CUDA CODE.
+FOLLOW EXACTLY THIS FORMAT. DO NOT ADD ANYTHING ELSE.
+
+Here is the CUDA kernel code example you need to optimize:
+```cpp
+// Matrix multiplication CUDA kernel
+#include <torch/extension.h>
+
+__global__ void matmul_kernel(const float* A, const float* B, float* C, int N) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (row < N && col < N) {
+        float value = 0.0f;
+        for (int k = 0; k < N; ++k) {
+            value += A[row * N + k] * B[k * N + col];
+        }
+        C[row * N + col] = value;
+    }
+}
+
+torch::Tensor matmul_cuda(torch::Tensor A, torch::Tensor B) {
+    int N = A.size(0);
+    auto C = torch::zeros({N, N}, A.options());
+
+    const dim3 block(16, 16);
+    const dim3 grid((N + block.x - 1) / block.x, (N + block.y - 1) / block.y);
+
+    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), N);
+    cudaDeviceSynchronize();
+
+    return C;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &matmul_cuda, "Matrix multiplication kernel");
+}
+```
+
+[2025-04-27 20:14:16] profile.py(231) :   - use_numba_accelerate: False
+[2025-04-27 20:14:16] profile.py(231) :   - use_protected_div: False
+[2025-04-27 20:14:16] profile.py(231) :   - protected_div_delta: 1e-05
+[2025-04-27 20:14:16] profile.py(231) :   - random_seed: None
+[2025-04-27 20:14:16] profile.py(231) :   - timeout_seconds: 300
+[2025-04-27 20:14:16] profile.py(231) :   - exec_code: False
+[2025-04-27 20:14:16] profile.py(231) :   - safe_evaluate: True
+[2025-04-27 20:14:16] profile.py(231) :   - daemon_eval_process: False
+[2025-04-27 20:14:16] profile.py(231) :   - args: Namespace(CUDA_HOME='/usr/local/cuda', CUDA_VER='12.4', GPU_TYPE='RTX 4090', GPU_ARCH='8.9', device='cuda:0', keep_temp=True, res_path='/root/ai_cuda_engineer/llm4ad/Results/20250427-201416/1_Square_matrix_multiplication_', code_operation='1_Square_matrix_multiplication_', func_code='import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n\ndef module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:\n    """\n    Performs the matrix multiplication of A and B.\n\n    Args:\n        A (torch.Tensor): Input matrix A of shape (N, N).\n        B (torch.Tensor): Input matrix B of shape (N, N).\n\n    Returns:\n        torch.Tensor: Output matrix of shape (N, N).\n    """\n    return torch.matmul(A, B)\n\n\nclass Model(nn.Module):\n    """\n    Simple model that performs a single square matrix multiplication (C = A * B)\n    """\n    def __init__(self):\n        super(Model, self).__init__()\n\n    def forward(self, A: torch.Tensor, B: torch.Tensor, fn=module_fn) -> torch.Tensor:\n        return fn(A, B)\n\n\nN = 2048\n\ndef get_inputs():\n    A = torch.randn(N, N)\n    B = torch.randn(N, N)\n    return [A, B]\n\ndef get_init_inputs():\n    return []  # No special initialization inputs needed', cuda_code='// Matrix multiplication CUDA kernel\n#include <torch/extension.h>\n\n__global__ void matmul_kernel(const float* A, const float* B, float* C, int N) {\n    int row = blockIdx.y * blockDim.y + threadIdx.y;\n    int col = blockIdx.x * blockDim.x + threadIdx.x;\n\n    if (row < N && col < N) {\n        float value = 0.0f;\n        for (int k = 0; k < N; ++k) {\n            value += A[row * N + k] * B[k * N + col];\n        }\n        C[row * N + col] = value;\n    }\n}\n\ntorch::Tensor matmul_cuda(torch::Tensor A, torch::Tensor B) {\n    int N = A.size(0);\n    auto C = torch::zeros({N, N}, A.options());\n\n    const dim3 block(16, 16);\n    const dim3 grid((N + block.x - 1) / block.x, (N + block.y - 1) / block.y);\n\n    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), N);\n    cudaDeviceSynchronize();\n\n    return C;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def("forward", &matmul_cuda, "Matrix multiplication kernel");\n}')
+[2025-04-27 20:14:16] profile.py(231) :   - func_code: import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs the matrix multiplication of A and B.
+
+    Args:
+        A (torch.Tensor): Input matrix A of shape (N, N).
+        B (torch.Tensor): Input matrix B of shape (N, N).
+
+    Returns:
+        torch.Tensor: Output matrix of shape (N, N).
+    """
+    return torch.matmul(A, B)
+
+
+class Model(nn.Module):
+    """
+    Simple model that performs a single square matrix multiplication (C = A * B)
+    """
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, A: torch.Tensor, B: torch.Tensor, fn=module_fn) -> torch.Tensor:
+        return fn(A, B)
+
+
+N = 2048
+
+def get_inputs():
+    A = torch.randn(N, N)
+    B = torch.randn(N, N)
+    return [A, B]
+
+def get_init_inputs():
+    return []  # No special initialization inputs needed
+[2025-04-27 20:14:16] profile.py(231) :   - cuda_code: // Matrix multiplication CUDA kernel
+#include <torch/extension.h>
+
+__global__ void matmul_kernel(const float* A, const float* B, float* C, int N) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (row < N && col < N) {
+        float value = 0.0f;
+        for (int k = 0; k < N; ++k) {
+            value += A[row * N + k] * B[k * N + col];
+        }
+        C[row * N + col] = value;
+    }
+}
+
+torch::Tensor matmul_cuda(torch::Tensor A, torch::Tensor B) {
+    int N = A.size(0);
+    auto C = torch::zeros({N, N}, A.options());
+
+    const dim3 block(16, 16);
+    const dim3 grid((N + block.x - 1) / block.x, (N + block.y - 1) / block.y);
+
+    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), N);
+    cudaDeviceSynchronize();
+
+    return C;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("forward", &matmul_cuda, "Matrix multiplication kernel");
+}
+[2025-04-27 20:14:16] profile.py(231) :   - gpu_type: RTX 4090
+[2025-04-27 20:14:16] profile.py(231) :   - cuda_version: 12.4
+[2025-04-27 20:14:16] profile.py(231) :   - device: cuda:0
+[2025-04-27 20:14:16] profile.py(233) : ====================================================================
+[2025-04-27 20:14:16] profile.py(234) : Method Parameters
+[2025-04-27 20:14:16] profile.py(235) : --------------------------------------------------------------------
+[2025-04-27 20:14:16] profile.py(236) :   - Method: FunSearch
+[2025-04-27 20:14:16] profile.py(240) :   - _max_sample_nums: 45
+[2025-04-27 20:14:16] profile.py(240) :   - _num_samplers: 1
+[2025-04-27 20:14:16] profile.py(240) :   - _num_evaluators: 1
+[2025-04-27 20:14:16] profile.py(240) :   - _samples_per_prompt: 4
+[2025-04-27 20:14:16] profile.py(240) :   - _debug_mode: False
+[2025-04-27 20:14:16] profile.py(240) :   - _resume_mode: False
+[2025-04-27 20:14:16] profile.py(240) :   - code_type: Kernel
+[2025-04-27 20:14:16] profile.py(240) :   - _py_func_ref: def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs the matrix multiplication of A and B.
+
+    Args:
+        A (torch.Tensor): Input matrix A of shape (N, N).
+        B (torch.Tensor): Input matrix B of shape (N, N).
+
+    Returns:
+        torch.Tensor: Output matrix of shape (N, N).
+    """
+    return torch.matmul(A, B)
+
+
+[2025-04-27 20:14:16] profile.py(240) :   - _function_to_evolve_name: matmul_cuda
+[2025-04-27 20:14:16] profile.py(240) :   - db_config: ProgramsDatabaseConfig(functions_per_prompt=2, num_islands=10, reset_period=14400, cluster_sampling_temperature_init=0.1, cluster_sampling_temperature_period=30000)
+[2025-04-27 20:14:16] profile.py(240) :   - _database: <llm4ad.method.funsearch.programs_database_cpp.ProgramsDatabase object at 0x7f8656d62210>
+[2025-04-27 20:14:16] profile.py(240) :   - _tot_sample_nums: 0
+[2025-04-27 20:14:16] profile.py(240) :   - _evaluation_executor: <concurrent.futures.thread.ThreadPoolExecutor object at 0x7f8656d62010>
+[2025-04-27 20:14:16] profile.py(240) :   - _sampler_threads: [<Thread(Thread-1 (_sample_evaluate_register), initial)>]
+[2025-04-27 20:14:16] profile.py(242) : =====================================================================

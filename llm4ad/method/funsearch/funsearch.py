@@ -154,6 +154,12 @@ class FunSearch:
             try:
                 # get prompt
                 prompt = self._database.get_prompt()
+                print(f'====================================================================')
+                print(f'====================================================================')
+                print(prompt.code)
+                print(f'====================================================================')
+                print(f'====================================================================\n\n')
+                
                 prompt_contents = [prompt.code for _ in range(self._samples_per_prompt)]
 
                 # do sample
@@ -165,7 +171,23 @@ class FunSearch:
                 # convert samples to program instances
                 programs_to_be_eval = []
                 for func in sampled_funcs:
-                    program = SampleTrimmer.sample_to_program(func, self._template_program)
+                    # ------------------------------------------------------------------------------------
+                    # RZ: disable SampleTrimmer
+                    # ------------------------------------------------------------------------------------
+                    # program = SampleTrimmer.sample_to_program(func, self._template_program)
+                    # ------------------------------------------------------------------------------------
+                    # RZ: here we trim the code between```cpp ``` block
+                    # ------------------------------------------------------------------------------------
+                    if '```cpp' in func:
+                        snippet = func.split('```cpp')[1]
+                        if '```' in snippet:
+                            snippet = snippet.split('```')[0]
+                            program = KERTextFunctionProgramConverter.text_to_program(snippet)
+                            # if convert sample to program success, we put it to programs_to_be_eval
+                            if program is not None:
+                                programs_to_be_eval.append(program)
+                    # ------------------------------------------------------------------------------------
+
                     # if sample to program success
                     if program is not None:
                         programs_to_be_eval.append(program)

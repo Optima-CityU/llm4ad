@@ -133,7 +133,7 @@ class SecureEvaluator:
                  evaluator: Evaluation,
                  debug_mode=False,
                  *,
-                 fork_proc: Literal['auto', 'default'] | bool = 'auto',
+                 fork_proc: Literal['auto', 'default'] | bool = False,
                  **kwargs):
         assert fork_proc in [True, False, 'auto', 'default']
         self._evaluator = evaluator

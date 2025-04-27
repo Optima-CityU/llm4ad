@@ -1,0 +1,7 @@
+[
+    {
+        "sample_order": 1,
+        "function": "// CUDA kernel for matrix multiplication: C = A * B\n\n#include <torch/extension.h>\n\n__global__ void matmul_kernel(const float* A, const float* B, float* C, int M, int K, int N) {\n    int row = blockIdx.y * blockDim.y + threadIdx.y;\n    int col = blockIdx.x * blockDim.x + threadIdx.x;\n\n    if (row < M && col < N) {\n        float value = 0.0f;\n        for (int i = 0; i < K; ++i) {\n            value += A[row * K + i] * B[i * N + col];\n        }\n        C[row * N + col] = value;\n    }\n}\n\ntorch::Tensor matmul_cuda(torch::Tensor A, torch::Tensor B) {\n    // Get dimensions of A and B\n    int M = A.size(0);\n    int K = A.size(1);\n    int N = B.size(1);\n\n    // Allocate output tensor C\n    torch::Tensor C = torch::zeros({M, N}, A.options());\n\n    // Define block and grid size\n    dim3 block(16, 16); // 16x16 threads per block\n    dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y);\n\n    // Launch the kernel\n    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), M, K, N);\n\n    // Synchronize to check for any errors\n    cudaDeviceSynchronize();\n\n    return C;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def(\"forward\", &matmul_cuda, \"Matrix multiplication kernel (C = A * B)\");\n}",
+        "score": -3.3487839460372926
+    }
+]

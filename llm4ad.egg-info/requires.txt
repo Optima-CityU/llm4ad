@@ -1,0 +1,13 @@
+numpy<2
+torch
+tensorboardX
+wandb
+scipy
+tqdm
+numba
+requests
+openai
+pytz
+matplotlib
+python-docx
+ttkbootstrap

@@ -173,8 +173,6 @@ Here is the CUDA kernel code example you need to optimize:
 ```
 
 Propose a new CUDA kernel code which aims to reduce the runtime of the operation, while ensuring the kernel returns the correct result.
-
-
 """
 #         prompt = f'I have the following `{self._best_function_found.name}` algorithm implementation:'
 #         instruction_prompt = f'''

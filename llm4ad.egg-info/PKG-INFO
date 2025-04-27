@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: llm4ad
+Version: 1.0
+Summary: Large Language Model for Algorithm Design Platform 
+Author: LLM4AD Developers
+Requires-Python: >=3.9,<3.13
+License-File: LICENSE
+Requires-Dist: numpy<2
+Requires-Dist: torch
+Requires-Dist: tensorboardX
+Requires-Dist: wandb
+Requires-Dist: scipy
+Requires-Dist: tqdm
+Requires-Dist: numba
+Requires-Dist: requests
+Requires-Dist: openai
+Requires-Dist: pytz
+Requires-Dist: matplotlib
+Requires-Dist: python-docx
+Requires-Dist: ttkbootstrap
