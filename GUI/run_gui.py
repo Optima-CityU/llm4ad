@@ -54,8 +54,14 @@ stop_thread = False
 have_stop_thread = False
 
 method_para_entry_list = []
+batch_para_entry_list = []
 method_para_value_type_list = []
 method_para_value_name_list = []
+batch_method_para = {}
+batch_problem_para = {}
+
+batch_last_para_type = 0
+batch_last_para_name = None
 
 problem_listbox = None
 default_problem_index = None
@@ -63,8 +69,17 @@ objectives_var = None
 problem_para_entry_list = []
 problem_para_value_type_list = []
 problem_para_value_name_list = []
+problem_listbox2 = None
+objectives_var2 = None
+algo_listbox2 = None
+selected_algorithms_list = []
+selected_tasks_list = []
+real_algo_listbox2 = None
+real_prob_listbox2 = None
+selected_problems_list = []
 
 llm_para_entry_list = []
+llm_para_entry_list2 = []
 llm_para_value_name_list = ['name', 'host', 'key', 'model']
 llm_para_default_value_list = ['HttpsApi', '', '', '']
 llm_para_placeholder_list = ['HttpsApi', 'api.bltcy.top', 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'gpt-4o-mini']
@@ -76,6 +91,10 @@ log_dir = None
 figures = None
 ax = None
 canvas = None
+
+batch_process1 = None
+batch_thread1 = None
+btach_log_dir = None
 
 ##########################################################
 
@@ -144,6 +163,188 @@ def open_folder():
 
 ##########################################################
 
+def add_algorithm():
+    global algo_listbox2
+    global selected_algorithms_list
+    global real_algo_listbox2
+    global batch_method_para
+
+    selected = algo_listbox2.curselection()
+    if not selected:
+        return
+
+    algo_name = algo_listbox2.get(selected[0])
+    if algo_name not in selected_algorithms_list:
+        real_algo_listbox2.insert(tk.END, algo_name)
+        selected_algorithms_list.append(algo_name)
+        required_parameters, value_type, default_value = get_required_parameters(
+            path=f"../llm4ad/method/{algo_name}/paras.yaml")
+
+        batch_method_para[algo_name] = {
+            'name': required_parameters,
+            'type': value_type,
+            'value': [tk.StringVar(value=value) for value in default_value]
+        }
+
+def remove_algorithm():
+    global selected_algorithms_list
+    global real_algo_listbox2
+    global batch_method_para
+    global batch_last_para_type
+
+    selected = real_algo_listbox2.curselection()
+    if not selected:
+        return
+
+    batch_last_para_type = 0
+    algo_name = real_algo_listbox2.get(selected[0])
+    selected_algorithms_list.remove(algo_name)
+    real_algo_listbox2.delete(selected[0])
+    batch_method_para.pop(algo_name)
+
+def add_problem():
+    global problem_listbox2
+    global selected_problems_list
+    global real_prob_listbox2
+    global batch_problem_para
+
+    selected = problem_listbox2.curselection()
+    if not selected:
+        return
+
+    prob_name = problem_listbox2.get(selected[0])
+    prob_type = objectives_var2.get()
+    prob_name = '{}/{}'.format(prob_type,prob_name)
+    if prob_name not in selected_problems_list:
+        real_prob_listbox2.insert(tk.END, prob_name)
+        selected_problems_list.append(prob_name)
+        required_parameters, value_type, default_value = get_required_parameters(
+            path=f"../llm4ad/task/{prob_name}/paras.yaml")
+        batch_problem_para[prob_name] = {
+            'name': required_parameters,
+            'type': value_type,
+            'value': [tk.StringVar(value=value) for value in default_value]
+        }
+
+def remove_problem():
+    global selected_problems_list
+    global real_prob_listbox2
+    global batch_problem_para
+    global batch_last_para_type
+
+    selected = real_prob_listbox2.curselection()
+    if not selected:
+        return
+
+    batch_last_para_type = 0
+    prob_name = real_prob_listbox2.get(selected[0])
+    selected_problems_list.remove(prob_name)
+    real_prob_listbox2.delete(selected[0])
+    batch_problem_para.pop(prob_name)
+
+############################
+
+def batch_on_algo_select(event):
+    if real_algo_listbox2.curselection():
+        selected_algo = real_algo_listbox2.get(real_algo_listbox2.curselection())
+        batch_show_algorithm_parameters(selected_algo)
+
+
+def batch_on_problem_select(event):
+    if real_prob_listbox2.curselection():
+        selected_problem = real_prob_listbox2.get(real_prob_listbox2.curselection())
+        batch_show_problem_parameters(selected_problem)
+
+
+def batch_show_algorithm_parameters(algo_name):
+    global batch_method_para
+    global batch_para_entry_list
+    global batch_last_para_type
+    global batch_last_para_name
+    batch_clear_param_frame()
+
+    batch_last_para_type = 1
+    batch_last_para_name = algo_name
+
+    paras = batch_method_para[algo_name]
+    required_parameters = paras['name']
+    value_type = paras['type']
+    default_value = paras['value']
+
+    for i in range(len(required_parameters)):
+        if i != 0:
+            ttk.Label(para_setting_frame2, text=required_parameters[i] + ':').grid(row=i - 1, column=0, sticky='nsew', padx=5, pady=10)
+        batch_para_entry_list.append(ttk.Entry(para_setting_frame2, width=10, bootstyle="primary"))
+        if i != 0:
+            batch_para_entry_list[-1].grid(row=i - 1, column=1, sticky='nsew', padx=5, pady=10)
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+        if default_value[i] is not None:
+            batch_para_entry_list[-1].insert(0, str(default_value[i].get()))
+    para_setting_frame2.grid_columnconfigure(0, weight=1)
+    para_setting_frame2.grid_columnconfigure(1, weight=2)
+
+    if len(required_parameters) < 5:
+        for i in range(len(required_parameters), 5):
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+
+
+def batch_show_problem_parameters(problem_name):
+    global batch_problem_para
+    global batch_para_entry_list
+    global batch_last_para_type
+    global batch_last_para_name
+    batch_clear_param_frame()
+
+    batch_last_para_type = 2
+    batch_last_para_name = problem_name
+
+    paras = batch_problem_para[problem_name]
+    required_parameters = paras['name']
+    value_type = paras['type']
+    default_value = paras['value']
+
+    for i in range(len(required_parameters)):
+        if i != 0:
+            ttk.Label(para_setting_frame2, text=required_parameters[i] + ':').grid(row=i - 1, column=0, sticky='nsew',
+                                                                                   padx=5, pady=10)
+        batch_para_entry_list.append(ttk.Entry(para_setting_frame2, width=10, bootstyle="primary"))
+        if i != 0:
+            batch_para_entry_list[-1].grid(row=i - 1, column=1, sticky='nsew', padx=5, pady=10)
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+        if default_value[i] is not None:
+            batch_para_entry_list[-1].insert(0, str(default_value[i].get()))
+    para_setting_frame2.grid_columnconfigure(0, weight=1)
+    para_setting_frame2.grid_columnconfigure(1, weight=2)
+
+    if len(required_parameters) < 5:
+        for i in range(len(required_parameters), 5):
+            para_setting_frame2.grid_rowconfigure(i - 1, weight=1)
+
+def batch_clear_param_frame():
+    global batch_para_entry_list
+    global batch_last_para_type
+    global batch_last_para_name
+    global batch_problem_para
+    global batch_method_para
+
+    # 需要存上一次的东西
+    if batch_last_para_type==0:
+        pass
+    elif batch_last_para_type==1:
+        for i in range(len(batch_para_entry_list)):
+            batch_method_para[batch_last_para_name]['value'][i].set(batch_para_entry_list[i].get())
+    elif batch_last_para_type==2:
+        for i in range(len(batch_para_entry_list)):
+            batch_problem_para[batch_last_para_name]['value'][i].set(batch_para_entry_list[i].get())
+
+
+    batch_para_entry_list = []
+    for widget in para_setting_frame2.winfo_children():
+        widget.destroy()
+
+    # todo 3 注意，最后一次的还没存，需要点击plot->调用reture_para()的时候，再像这样存东西
+
+############################
 def on_algo_select(event):
     global selected_algo
     if algo_listbox.curselection():
@@ -277,8 +478,56 @@ def problem_type_select(event=None):
     problem_listbox.bind("<<ListboxSelect>>", on_problem_select)
     on_problem_select(problem_listbox.select_set(default_problem_index))
 
+def batch_exp_problem_type_select(event=None):
+    global problem_listbox2
+    global objectives_var2
+
+    if problem_listbox2 is not None:
+        problem_listbox2.destroy()
+
+    problem_listbox2 = tk.Listbox(problem_frame2, height=6, bg='white', selectbackground='lightgray', font=('Comic Sans MS', 12))
+    problem_listbox2.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
+    path = f'../llm4ad/task/{objectives_var2.get()}'
+    for name in os.listdir(path):
+        full_path = os.path.join(path, name)
+        if os.path.isdir(full_path) and name != '__pycache__' and name != '_data':
+            problem_listbox2.insert(tk.END, name)
+
 
 ###############################################################################
+
+# todo 1 函数: 点击plot按钮, 得到参数，for循环，for循环里面创建process和thread，然后process和thread运行完之后再下一个for循环。注意参考notion中的代码
+# todo 1 函数：初始化表格
+# todo 1 函数：get_result, 不用怎么改，主要是需要改成修改result的
+
+def batch_on_plot_button_click():
+    global batch_process1
+    global batch_thread1
+    global btach_log_dir
+
+    try:
+        if not batch_check_para():
+            tk.messagebox.showinfo("Warning", "Please configure the settings of LLM.")
+            return
+
+        llm_para, method_para, problem_para, profiler_para = batch_return_para()
+
+        # todo 1 继续补充
+
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+
+def batch_return_para():
+    # todo 1 继续补充
+    # todo 1 注意需要补充
+
+    pass
+
+def batch_check_para():
+    for i in llm_para_entry_list2[1:]:
+        if not i.have_content:
+            return False
+    return True
 
 def on_plot_button_click():
     global process1
@@ -596,6 +845,8 @@ def exit_run():
     root.destroy()
     sys.exit(0)
 
+def show_frame(frame, button):
+    frame.tkraise()
 
 ###############################################################################
 
@@ -624,27 +875,49 @@ if __name__ == '__main__':
 
     top_frame = ttk.Frame(root, height=30, bootstyle="info")
     top_frame.pack(fill='x')
-    link_doc = ttk.Button(top_frame, image=photoimage_doc, command=open_doc_link, bootstyle="info")
-    link_doc.pack(side=ttk.LEFT, padx=3)
-    link_git = ttk.Button(top_frame, image=photoimage_git, command=open_github_link, bootstyle="info")
-    link_git.pack(side=ttk.LEFT, padx=3)
-    link_web = ttk.Button(top_frame, image=photoimage_web, command=open_website_link, bootstyle="info")
-    link_web.pack(side=ttk.LEFT, padx=3)
-    link_qq = ttk.Button(top_frame, image=photoimage_qq, command=open_qq_link, bootstyle="info")
-    link_qq.pack(side=ttk.LEFT, padx=3)
 
+    # 创建底部 Frame
     bottom_frame = ttk.Frame(root)
     bottom_frame.pack(fill='both', expand=True)
-    left_frame = ttk.Frame(bottom_frame)
-    left_frame.grid(row=0, column=0, sticky="nsew")
-    ttk.Separator(bottom_frame, orient='vertical', bootstyle="secondary").grid(row=0, column=1, sticky="ns")
-    right_frame = ttk.Frame(bottom_frame)
-    right_frame.grid(row=0, column=2, sticky="nsew")
+
+    # 创建两个 Frame 用于切换
+    frame1 = ttk.Frame(bottom_frame)
+    frame2 = ttk.Frame(bottom_frame)
+
+    for frame in (frame1, frame2):
+        frame.grid(row=0, column=0, sticky='nsew')
 
     bottom_frame.grid_rowconfigure(0, weight=1)
-    bottom_frame.grid_columnconfigure(0, weight=2)
-    bottom_frame.grid_columnconfigure(1, weight=1)
-    bottom_frame.grid_columnconfigure(2, weight=30)
+    bottom_frame.grid_columnconfigure(0, weight=1)
+
+    button1 = ttk.Button(top_frame, text="Single Experiment", command=lambda: show_frame(frame1, button1))
+    button1.pack(side=tk.LEFT, padx=3)
+
+    button2 = ttk.Button(top_frame, text="Batch Experiments", command=lambda: show_frame(frame2, button2))
+    button2.pack(side=tk.LEFT, padx=3)
+
+    link_doc = ttk.Button(top_frame, image=photoimage_doc, command=open_doc_link, bootstyle="info")
+    link_doc.pack(side=ttk.RIGHT, padx=3)
+    link_git = ttk.Button(top_frame, image=photoimage_git, command=open_github_link, bootstyle="info")
+    link_git.pack(side=ttk.RIGHT, padx=3)
+    link_web = ttk.Button(top_frame, image=photoimage_web, command=open_website_link, bootstyle="info")
+    link_web.pack(side=ttk.RIGHT, padx=3)
+    link_qq = ttk.Button(top_frame, image=photoimage_qq, command=open_qq_link, bootstyle="info")
+    link_qq.pack(side=ttk.RIGHT, padx=3)
+
+    ##########################################################
+
+    left_frame = ttk.Frame(frame1)
+    left_frame.grid(row=0, column=0, sticky="nsew")
+    ttk.Separator(frame1, orient='vertical', bootstyle="secondary").grid(row=0, column=1, sticky="ns")
+    right_frame = ttk.Frame(frame1)
+    right_frame.grid(row=0, column=2, sticky="nsew")
+
+    frame1.grid_rowconfigure(0, weight=1)
+    frame1.grid_columnconfigure(0, weight=2)
+    frame1.grid_columnconfigure(1, weight=1)
+    frame1.grid_columnconfigure(2, weight=30)
+
 
     #####################################################
 
@@ -747,8 +1020,8 @@ if __name__ == '__main__':
 
     right_frame.grid_rowconfigure(0, weight=400)
     right_frame.grid_rowconfigure(1, weight=2500)
-    right_frame.grid_columnconfigure(0, weight=500)
-    right_frame.grid_columnconfigure(1, weight=500)
+    right_frame.grid_columnconfigure(0, weight=400)
+    right_frame.grid_columnconfigure(1, weight=600)
 
     ###
 
@@ -765,11 +1038,223 @@ if __name__ == '__main__':
 
     code_display_frame = ttk.Labelframe(code_frame, text="Current best algorithm:", bootstyle="dark")
     code_display_frame.pack(anchor=tk.NW, fill=tk.X, padx=5, pady=5)
-    code_display = tk.Text(code_display_frame, height=14, width=55)
+    code_display = tk.Text(code_display_frame, height=14, width=70)
     code_display.pack(fill='both', expand=True, padx=5, pady=5)
     sorting_algorithm = ""
     code_display.insert(tk.END, sorting_algorithm)
     code_display.config(state='disabled')
+
+    ##########################################################
+
+    # frame 2
+
+    left_frame2 = ttk.Frame(frame2)
+    left_frame2.grid(row=0, column=0, sticky="nsew")
+    ttk.Separator(frame2, orient='vertical', bootstyle="secondary").grid(row=0, column=1, sticky="ns")
+    right_frame2 = ttk.Frame(frame2)
+    right_frame2.grid(row=0, column=2, sticky="nsew")
+
+    frame2.grid_rowconfigure(0, weight=1)
+    frame2.grid_columnconfigure(0, weight=2)
+    frame2.grid_columnconfigure(1, weight=1)
+    frame2.grid_columnconfigure(2, weight=30)
+
+    ###
+
+    llm_frame2 = ttk.Labelframe(left_frame2, text="LLM setups", bootstyle="dark")
+    llm_frame2.pack(anchor=tk.NW, fill=tk.X, padx=5, pady=5)
+
+    for i in range(len(llm_para_value_name_list)):
+        llm_para_entry_list2.append(
+            PlaceholderEntry(llm_frame2, width=70, bootstyle="dark", placeholder=llm_para_placeholder_list[i]))
+        if i != 0:
+            ttk.Label(llm_frame2, text=llm_para_value_name_list[i] + ':').grid(row=i - 1, column=0, sticky='ns', padx=5,
+                                                                              pady=5)
+            llm_para_entry_list2[-1].grid(row=i - 1, column=1, sticky='ns', padx=5, pady=5)
+            llm_frame2.grid_rowconfigure(i - 1, weight=1)
+
+    llm_frame2.grid_columnconfigure(0, weight=1)
+    llm_frame2.grid_columnconfigure(1, weight=1)
+
+    with_default_parameter = False
+    if with_default_parameter:
+        for i in range(len(llm_para_value_name_list)):
+            llm_para_entry_list2[i].delete(0, 'end')
+            llm_para_entry_list2[i].configure(foreground=llm_para_entry_list2[i].default_fg_color)
+            llm_para_entry_list2[i].insert(0, str(llm_para_default_value_list[i]))
+    else:
+        llm_para_entry_list2[0].delete(0, 'end')
+        llm_para_entry_list2[0].configure(foreground=llm_para_entry_list2[0].default_fg_color)
+        llm_para_entry_list2[0].insert(0, str(llm_para_default_value_list[0]))
+
+    ###
+
+    container_frame_1_2 = tk.Frame(left_frame2)
+    container_frame_1_2.pack(fill=tk.BOTH, expand=True)
+
+    algo_frame2 = ttk.Labelframe(container_frame_1_2, text="Methods", bootstyle="primary")
+    algo_frame2.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+    button_frame_algo_2 = tk.Frame(container_frame_1_2)
+    button_frame_algo_2.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+    add_button2 = ttk.Button(button_frame_algo_2, text="Add-->", width=12, command=add_algorithm,
+                              bootstyle="primary-outline", state=tk.NORMAL)
+    add_button2.grid(row=1, column=1, pady=5)
+    delete_button2 = ttk.Button(button_frame_algo_2, text="<--Delete", width=12, command=remove_algorithm,
+                             bootstyle="primary-outline", state=tk.NORMAL)
+    delete_button2.grid(row=3, column=1, pady=5)
+
+    button_frame_algo_2.grid_rowconfigure(0, weight=6)
+    button_frame_algo_2.grid_rowconfigure(1, weight=10)
+    button_frame_algo_2.grid_rowconfigure(2, weight=6)
+    button_frame_algo_2.grid_rowconfigure(3, weight=10)
+    button_frame_algo_2.grid_rowconfigure(4, weight=6)
+    button_frame_algo_2.grid_columnconfigure(0, weight=2)
+    button_frame_algo_2.grid_columnconfigure(1, weight=4)
+    button_frame_algo_2.grid_columnconfigure(2, weight=2)
+
+    real_algo_frame2 = ttk.Labelframe(container_frame_1_2, text="Selected Methods", bootstyle="warning")
+    real_algo_frame2.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+
+    container_frame_1_2.grid_rowconfigure(0, weight=10)
+    container_frame_1_2.grid_columnconfigure(0, weight=10)
+    container_frame_1_2.grid_columnconfigure(1, weight=3)
+    container_frame_1_2.grid_columnconfigure(2, weight=10)
+
+    real_algo_listbox2 = tk.Listbox(real_algo_frame2, height=6, bg='white', selectbackground='lightgray',
+                               font=('Comic Sans MS', 12))
+    real_algo_listbox2.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
+    real_algo_listbox2.bind("<<ListboxSelect>>", batch_on_algo_select)
+
+    ###
+
+    algo_listbox2 = tk.Listbox(algo_frame2, height=6, bg='white', selectbackground='lightgray',
+                              font=('Comic Sans MS', 12))
+    algo_listbox2.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
+    for _, dict_name, _ in os.walk('../llm4ad/method'):
+        for name in dict_name:
+            if name != '__pycache__':
+                algo_listbox2.insert(tk.END, name)
+
+    ###
+
+    container_frame_2_2 = tk.Frame(left_frame2)
+    container_frame_2_2.pack(fill=tk.BOTH, expand=True)
+
+    problem_frame2 = ttk.Labelframe(container_frame_2_2, text="Tasks", bootstyle="primary")
+    problem_frame2.grid(row=0, column=0, sticky="nsew")
+
+    button_frame_prob_2 = tk.Frame(container_frame_2_2)
+    button_frame_prob_2.grid(row=0, column=1, sticky="nsew")
+
+    add_button22 = ttk.Button(button_frame_prob_2, text="Add-->", width=12, command=add_problem,
+                             bootstyle="primary-outline", state=tk.NORMAL)
+    add_button22.grid(row=1, column=1, pady=5)
+    delete_button22 = ttk.Button(button_frame_prob_2, text="<--Delete", width=12, command=remove_problem,
+                                bootstyle="primary-outline", state=tk.NORMAL)
+    delete_button22.grid(row=3, column=1, pady=5)
+
+    button_frame_prob_2.grid_rowconfigure(0, weight=6)
+    button_frame_prob_2.grid_rowconfigure(1, weight=10)
+    button_frame_prob_2.grid_rowconfigure(2, weight=6)
+    button_frame_prob_2.grid_rowconfigure(3, weight=10)
+    button_frame_prob_2.grid_rowconfigure(4, weight=6)
+    button_frame_prob_2.grid_columnconfigure(0, weight=2)
+    button_frame_prob_2.grid_columnconfigure(1, weight=4)
+    button_frame_prob_2.grid_columnconfigure(2, weight=2)
+
+    real_problem_frame2 = ttk.Labelframe(container_frame_2_2, text="Selected Tasks", bootstyle="warning")
+    real_problem_frame2.grid(row=0, column=2, sticky="nsew")
+
+    container_frame_2_2.grid_rowconfigure(0, weight=10)
+    container_frame_2_2.grid_columnconfigure(0, weight=10)
+    container_frame_2_2.grid_columnconfigure(1, weight=3)
+    container_frame_2_2.grid_columnconfigure(2, weight=10)
+
+    real_prob_listbox2 = tk.Listbox(real_problem_frame2, height=6, bg='white', selectbackground='lightgray',
+                                    font=('Comic Sans MS', 12))
+    real_prob_listbox2.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
+    real_prob_listbox2.bind("<<ListboxSelect>>", batch_on_problem_select)
+
+
+    ###
+
+    objectives_var2 = tk.StringVar(value="optimization")
+    objectives_frame2 = tk.Frame(problem_frame2, bg='white')
+    objectives_frame2.pack(anchor=tk.NW, pady=5)
+    radiobutton_list2 = []
+    for _, dict_name, _ in os.walk('../llm4ad/task'):
+        for name in dict_name:
+            if name != '__pycache__' and name != '_data':
+                radiobutton_list2.append(name)
+        break
+    combobox2 = ttk.Combobox(objectives_frame2, state='readonly', values=radiobutton_list2, textvariable=objectives_var2,
+                            bootstyle="warning", font=('Comic Sans MS', 12))
+    combobox2.pack(anchor=tk.NW, padx=5, pady=5)
+
+    combobox2.bind('<<ComboboxSelected>>', batch_exp_problem_type_select)
+    batch_exp_problem_type_select()
+
+    ###
+
+    container_frame_3_2 = tk.Frame(left_frame2)
+    container_frame_3_2.pack(fill=tk.BOTH, expand=True)
+
+    para_setting_frame2 = ttk.Labelframe(container_frame_3_2, text="Parameter Settings", bootstyle="primary")
+    para_setting_frame2.grid(row=0, column=0, sticky="nsew")
+
+    container_frame_3_2.grid_rowconfigure(0, weight=10)
+    container_frame_3_2.grid_columnconfigure(0, weight=10)
+
+    ##########################################################
+
+    # todo 1 为按钮绑定函数
+    # todo 1 做到这里了，上面的组件都不用管
+    # todo 1 判断上一步有没有结束，看process1是否结束，还有have_stop_thread是不是true，但还要看一下have_stop_thread的初始解
+
+    # plot_button2 = ttk.Button(left_frame2, text="Run", command=on_plot_button_click, width=12,
+    #                          bootstyle="primary-outline", state=tk.NORMAL)
+    plot_button2 = ttk.Button(left_frame2, text="Run", width=12,
+                              bootstyle="primary-outline", state=tk.NORMAL)
+    plot_button2.pack(side='left', pady=20, expand=True)
+
+    # stop_button2 = ttk.Button(left_frame2, text="Stop", command=stop_run_thread, width=12, bootstyle="warning-outline",
+    #                          state=tk.DISABLED)
+    stop_button2 = ttk.Button(left_frame2, text="Stop", width=12, bootstyle="warning-outline",
+                              state=tk.DISABLED)
+    stop_button2.pack(side='left', pady=20, expand=True)
+
+    ##########################################################
+
+    # todo 1 右边显示表格
+
+    data_temp = [
+        [1.23, 4.56, 7.89, 2.34],
+        [5.67, 8.90, 1.23, 4.56],
+        [7.89, 2.34, 5.67, 8.90],
+        [1.23, 4.56, 7.89, 2.34],
+        [5.67, 8.90, 1.23, 4.56]
+    ]
+    columns = [f"列 {i + 1}" for i in range(len(data_temp[0]))]
+    tree_temp = ttk.Treeview(right_frame2, columns=columns, show="headings")
+
+    # 设置表头
+    for col in columns:
+        tree_temp.heading(col, text=col)
+        tree_temp.column(col, width=80, anchor="center")
+
+    # 插入数据
+    for row in data_temp:
+        tree_temp.insert("", "end", values=row)
+
+    # 显示表格
+    tree_temp.pack(padx=10, pady=10)
+
+    ##########################################################
+
+    # 默认显示 Frame 1，并设置按钮状态
+    show_frame(frame1, button1)
 
     ##########################################################
 
