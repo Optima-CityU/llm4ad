@@ -1,7 +1,0 @@
-[
-    {
-        "sample_order": 1,
-        "function": "// Matrix multiplication CUDA kernel\n#include <torch/extension.h>\n\n__global__ void matmul_kernel(const float* A, const float* B, float* C, int N) {\n    int row = blockIdx.y * blockDim.y + threadIdx.y;\n    int col = blockIdx.x * blockDim.x + threadIdx.x;\n\n    if (row < N && col < N) {\n        float value = 0.0f;\n        for (int k = 0; k < N; ++k) {\n            value += A[row * N + k] * B[k * N + col];\n        }\n        C[row * N + col] = value;\n    }\n}\n\ntorch::Tensor matmul_cuda(torch::Tensor A, torch::Tensor B) {\n    int N = A.size(0);\n    auto C = torch::zeros({N, N}, A.options());\n\n    const dim3 block(16, 16);\n    const dim3 grid((N + block.x - 1) / block.x, (N + block.y - 1) / block.y);\n\n    matmul_kernel<<<grid, block>>>(A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), N);\n    cudaDeviceSynchronize();\n\n    return C;\n}\n\nPYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {\n    m.def(\"forward\", &matmul_cuda, \"Matrix multiplication kernel\");\n}",
-        "score": -3.334547257423401
-    }
-]
