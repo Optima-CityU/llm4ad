@@ -42,7 +42,7 @@ class Evaluation(ABC):
             timeout_seconds: int | float = None,
             *,
             exec_code: bool = False,
-            safe_evaluate: bool = True,  # TODO: RZ: I change the default to True
+            safe_evaluate: bool = False,
             daemon_eval_process: bool = False
     ):
         """Evaluation interface for executing generated code.

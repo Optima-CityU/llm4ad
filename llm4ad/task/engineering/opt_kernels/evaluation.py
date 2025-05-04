@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import re
 import os
+import sys
 import time
 import torch
 import random
@@ -29,6 +30,9 @@ import tempfile
 import importlib
 import numpy as np
 import torch.utils.cpp_extension as cpp_extension
+import torch.multiprocessing as mp
+from torch.utils.benchmark import Timer
+from torch.profiler import profile, record_function, ProfilerActivity
 
 from typing import Any
 
@@ -36,6 +40,126 @@ from llm4ad.base.opt_kernels.evaluate import Evaluation
 from llm4ad.base.code import TextFunctionProgramConverter
 
 __all__ = ['KernelEvaluation']
+
+def check_correctness(func_model_inst, func_model_inst_copy, get_inputs, cuda_fn, atol=1e-02, rtol=1e-02):
+    with torch.no_grad():
+        inputs = get_inputs()
+        inputs = [
+            x.cuda() if isinstance(x, torch.Tensor) else x
+            for x in inputs
+        ]
+
+        model = func_model_inst.cuda()
+        model_new = func_model_inst_copy.cuda()
+
+        output = model(*inputs)
+        torch.cuda.synchronize()
+        try:
+            output_new = model_new(*inputs, fn=cuda_fn.forward)
+            torch.cuda.synchronize()
+            if output.shape != output_new.shape:
+                return False, f"Output shape mismatch: Expected {output.shape}, got {output_new.shape}"
+            if not torch.allclose(output, output_new, atol=atol, rtol=rtol):
+                max_diff = torch.max(torch.abs(output - output_new)).item()
+                avg_diff = torch.mean(torch.abs(output - output_new)).item()
+                return False, f"Output mismatch: max_diff={max_diff:.6f}, avg_diff={avg_diff:.6f}"
+        except Exception as e:
+            return False, f"Error running CUDA code: {e}"
+    return True, None
+
+
+def evaluate_cuda_code(func_torch_code: str, code_operation: str, res_path: str, seed: int = 0, test_mode="kernelbench"):
+    cuda_fname = os.path.join(res_path, "test_cuda_code.cu")
+    build_dir = os.path.join(res_path, "build")
+    os.makedirs(build_dir, exist_ok=True)
+
+    try:
+        # os.environ["TORCH_USE_CUDA_DSA"] = "1"
+        cuda_fn = cpp_extension.load(
+            name=code_operation,
+            sources=[cuda_fname],
+            extra_cuda_cflags=["-O3", "--use_fast_math"],
+            build_directory=build_dir,
+            with_cuda=True,
+            verbose=False
+        )
+    except Exception as e:
+        # safe_reset_cuda()
+        return dict(), f"Error loading CUDA code: {e}"
+    func_code_path = os.path.join(res_path, "func.py")
+    func_code_copy_path = os.path.join(res_path, "func_copy.py")
+    KernelEvaluation.write_multiple_files_to_multiple_paths([func_code_path, func_code_copy_path], [func_torch_code, func_torch_code])
+
+    func_module, func_spec = KernelEvaluation.load_module_from_path(func_code_path, "func_module")
+    func_module_copy, func_spec_copy = KernelEvaluation.load_module_from_path(func_code_copy_path, "func_module_copy")
+
+    init_inputs = func_module.get_init_inputs()
+    init_inputs = [
+        x.cuda() if isinstance(x, torch.Tensor) else x for x in init_inputs
+    ]
+
+    with torch.no_grad():
+        KernelEvaluation.set_seed(seed)
+        func_model_inst = func_module.Model(*init_inputs)
+        KernelEvaluation.set_seed(seed)
+        func_model_inst_copy = func_module_copy.Model(*init_inputs)
+
+    for i in range(5):
+        try:
+            correctness, error_message = check_correctness(
+                func_model_inst, func_model_inst_copy, func_module.get_inputs, cuda_fn
+            )
+        except Exception as e:
+            return dict(), f"Error running CUDA code: {e}"
+        if not correctness:
+            return dict(), error_message
+
+    del func_model_inst
+    torch.cuda.empty_cache()
+    torch.cuda.synchronize()
+    func_model_inst_copy = func_model_inst_copy.cuda()
+    # Now that the CUDA code is correct, we can evaluate the performance
+    with torch.no_grad():
+        inputs = func_module.get_inputs()
+        inputs = [
+            x.cuda() if isinstance(x, torch.Tensor) else x
+            for x in inputs
+        ]
+    if test_mode == "sakana":
+        cuda_timer = Timer(
+            stmt="model(*inputs, fn=cuda_fn.forward)",
+            globals={
+                "model": func_model_inst_copy.cuda(),
+                "inputs": inputs,
+                "cuda_fn": cuda_fn,
+            },
+        )
+        cuda_runtime = cuda_timer.timeit(100).mean * 1000
+    else:
+        func_model_inst_copy.cuda()
+        run_time_list = []
+        for _ in range(100):
+            start_event = torch.cuda.Event(enable_timing=True)
+            end_event = torch.cuda.Event(enable_timing=True)
+
+            start_event.record()
+            func_model_inst_copy(*inputs, fn=cuda_fn.forward)
+            end_event.record()
+
+            # Synchronize to ensure the events have completed
+            torch.cuda.synchronize()
+
+            # Calculate the elapsed time in milliseconds
+            elapsed_time_ms = start_event.elapsed_time(end_event)
+
+            run_time_list.append(elapsed_time_ms)
+        cuda_runtime = sum(run_time_list) / 100.0
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, profile_memory=True) as prof:
+        with record_function("model_inference"):
+            func_model_inst_copy(*inputs, fn=cuda_fn.forward)
+    prof_string = prof.key_averages().table(sort_by="cuda_time_total", row_limit=10)
+
+    return dict(cuda_runtime=cuda_runtime, prof_string=prof_string), None
 
 
 class KernelEvaluation(Evaluation):
@@ -174,114 +298,140 @@ Here is the CUDA kernel code example you need to optimize:
         return elapsed_times
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
-        # ------------------------------------------------------------------------------------
-        # RZ: always return -10 for debugging.
-        # ------------------------------------------------------------------------------------
-        # logging.warning('RZ: Always return -10 for the convenience of debugging. '
-        #                 'You can find me at line 178 in `evaluation.py`.')
-        # return -10
-        # ------------------------------------------------------------------------------------
+        temp_str = tempfile.mktemp().split('/')[-1]
+        time_stamp = time.strftime("%Y%m%d-%H%M%S")
+        temp_dir = os.path.join(self.args.res_path, "all_samples", f"{time_stamp}-{temp_str}")
+        os.makedirs(temp_dir, exist_ok=True)
 
-        with tempfile.TemporaryDirectory(dir=self.args.res_path) as temp_dir:
-            cuda_code_path = os.path.join(temp_dir, "cuda_code.cu")
-            python_func_path = os.path.join(temp_dir, "func.py")
-            cuda_func_path = os.path.join(temp_dir, "func_cu.py")
-            KernelEvaluation.write_multiple_files_to_multiple_paths(
-                [cuda_code_path, python_func_path, cuda_func_path], [program_str, self.func_code, self.func_code]
+        cuda_code_path = os.path.join(temp_dir, "test_cuda_code.cu")
+        python_func_path = os.path.join(temp_dir, "func.py")
+        cuda_func_path = os.path.join(temp_dir, "func_cu.py")
+        KernelEvaluation.write_multiple_files_to_multiple_paths(
+            [cuda_code_path, python_func_path, cuda_func_path], [program_str, self.func_code, self.func_code]
+        )
+        build_dir = os.path.join(temp_dir, "build")
+        os.makedirs(build_dir, exist_ok=True)
+        try:
+            # os.environ["TORCH_USE_CUDA_DSA"] = "1"
+            cuda_fn = cpp_extension.load(
+                name=f"{self.operation_name}_{temp_str}",
+                sources=[cuda_code_path],
+                build_directory=build_dir,
+                extra_cuda_cflags=["-O3", "--use_fast_math"],
+                with_cuda=True,
+                verbose=False
             )
-            try:
-                # os.environ["TORCH_USE_CUDA_DSA"] = "1"
-                cuda_fn = cpp_extension.load(
-                    name=self.operation_name,
-                    sources=[cuda_code_path],
-                    build_directory=temp_dir,
-                    extra_cuda_cflags=["-O3", "--use_fast_math"],
-                    with_cuda=True,
-                    verbose=False
-                )
-            except Exception as e:
-                self.save_cuda_code_and_error(program_str, e)
-                return None
-            func_module, func_spec = KernelEvaluation.load_module_from_path(python_func_path, "func_module")
-            cuda_module, cuda_spec = KernelEvaluation.load_module_from_path(cuda_func_path, "cu_module")
+        except Exception as e:
+            self.save_cuda_code_and_error(program_str, e)
+            return None
 
-            KernelEvaluation.set_seed(0)
-            init_inputs = func_module.get_init_inputs()
-            init_inputs = [
-                x.cuda(device=self.device) if isinstance(x, torch.Tensor) else x for x in init_inputs
-            ]
-            # load model
-            with torch.no_grad():
-                KernelEvaluation.set_seed(0)
-                original_model = func_module.Model(*init_inputs)
-                try:
-                    KernelEvaluation.set_seed(0)
-                    custom_model = cuda_module.Model(*init_inputs)
-                except Exception as e:
-                    self.save_cuda_code_and_error(program_str, e)
+
+        self.args.mutex.acquire()
+        if sys.platform.startswith('linux'):
+            mp.set_start_method("spawn", force=True)
+        with mp.Pool(processes=1) as pool:
+            res = pool.apply_async(evaluate_cuda_code, (self.func_code, f"{self.operation_name}_{temp_str}", temp_dir, 0, "kernelbench"))
+            try:
+                result = res.get(timeout=self.timeout_seconds)
+                if "cuda_runtime" in result[0]:
+                    return -result[0]["cuda_runtime"]
+                else:
+                    self.save_cuda_code_and_error(program_str, result[1])
                     return None
 
-            # check correctness
-            torch.manual_seed(0)
-            correctness_trial_seeds = [
-                torch.randint(0, 2 ** 32 - 1, (1,)).item() for _ in range(10)
-            ]
-            with torch.no_grad():
-                for trial in range(10):
+            except Exception as e:
+                result = dict(cuda_runtime=np.inf, prof_string="Error"), f"{e}"
+                self.save_cuda_code_and_error(program_str, e)
+                return -result[0]["cuda_runtime"]
+            finally:
+                self.args.mutex.release()
 
-                    trial_seed = correctness_trial_seeds[trial]
-
-                    KernelEvaluation.set_seed(trial_seed)
-                    inputs = func_module.get_inputs()
-                    inputs = [
-                        x.cuda(device=self.device) if isinstance(x, torch.Tensor) else x
-                        for x in inputs
-                    ]
-
-                    KernelEvaluation.set_seed(trial_seed)
-                    model = original_model.cuda(device=self.device)
-
-                    KernelEvaluation.set_seed(trial_seed)
-                    model_new = custom_model.cuda(device=self.device)
-
-                    output = model(*inputs)
-                    torch.cuda.synchronize(device=self.device)
-                    # ensure all GPU operations are completed before checking results
-
-                    try:
-                        output_new = model_new(*inputs, fn=cuda_fn.forward)
-                        torch.cuda.synchronize(device=self.device)
-                        if output.shape != output_new.shape:
-                            self.save_cuda_code_and_error(program_str, "output not match")
-                            return None
-                        if not torch.allclose(output, output_new, atol=1e-02, rtol=1e-02):
-                            self.save_cuda_code_and_error(program_str, "results not match")
-                            return None
-                    except Exception as e:
-                        self.save_cuda_code_and_error(program_str, e)
-                        return None
-
-            # test performance
-            torch.cuda.synchronize(device=self.device)
-            KernelEvaluation.set_seed(0)
-            inputs = func_module.get_inputs()
-            inputs = [
-                x.cuda(device=self.device) if isinstance(x, torch.Tensor) else x
-                for x in inputs
-            ]
-            model_new = custom_model.cuda(device=self.device)
-            torch.cuda.synchronize(device=self.device)
-
-            elapsed_times = KernelEvaluation.time_execution_with_cuda_event(
-                model_new,
-                inputs,
-                cuda_fn,
-                num_trials=10,
-                verbose=False,
-                device=self.device,
-            )
-            runtime_stats = np.mean(elapsed_times)
-            return -runtime_stats
+        # try:
+        #     func_module, func_spec = KernelEvaluation.load_module_from_path(python_func_path, "func_module")
+        #     cuda_module, cuda_spec = KernelEvaluation.load_module_from_path(cuda_func_path, "cu_module")
+        #
+        #     KernelEvaluation.set_seed(0)
+        #     init_inputs = func_module.get_init_inputs()
+        #     init_inputs = [
+        #         x.cuda(device=self.device) if isinstance(x, torch.Tensor) else x for x in init_inputs
+        #     ]
+        #     # load model
+        #     with torch.no_grad():
+        #         KernelEvaluation.set_seed(0)
+        #         original_model = func_module.Model(*init_inputs)
+        #         try:
+        #             KernelEvaluation.set_seed(0)
+        #             custom_model = cuda_module.Model(*init_inputs)
+        #         except Exception as e:
+        #             self.save_cuda_code_and_error(program_str, e)
+        #
+        #             return None
+        #
+        #     # check correctness
+        #     torch.manual_seed(0)
+        #     correctness_trial_seeds = [
+        #         torch.randint(0, 2 ** 32 - 1, (1,)).item() for _ in range(10)
+        #     ]
+        #     with torch.no_grad():
+        #         for trial in range(10):
+        #
+        #             trial_seed = correctness_trial_seeds[trial]
+        #
+        #             KernelEvaluation.set_seed(trial_seed)
+        #             inputs = func_module.get_inputs()
+        #             inputs = [
+        #                 x.cuda(device=self.device) if isinstance(x, torch.Tensor) else x
+        #                 for x in inputs
+        #             ]
+        #
+        #             KernelEvaluation.set_seed(trial_seed)
+        #             model = original_model.cuda(device=self.device)
+        #
+        #             KernelEvaluation.set_seed(trial_seed)
+        #             model_new = custom_model.cuda(device=self.device)
+        #
+        #             output = model(*inputs)
+        #             torch.cuda.synchronize(device=self.device)
+        #             # ensure all GPU operations are completed before checking results
+        #
+        #             try:
+        #                 output_new = model_new(*inputs, fn=cuda_fn.forward)
+        #                 torch.cuda.synchronize(device=self.device)
+        #                 if output.shape != output_new.shape:
+        #                     self.save_cuda_code_and_error(program_str, "output not match")
+        #                     return None
+        #                 if not torch.allclose(output, output_new, atol=1e-02, rtol=1e-02):
+        #                     self.save_cuda_code_and_error(program_str, "results not match")
+        #                     return None
+        #             except Exception as e:
+        #                 self.save_cuda_code_and_error(program_str, e)
+        #                 return None
+        #
+        #     # test performance
+        #     torch.cuda.synchronize(device=self.device)
+        #     KernelEvaluation.set_seed(0)
+        #     inputs = func_module.get_inputs()
+        #     inputs = [
+        #         x.cuda(device=self.device) if isinstance(x, torch.Tensor) else x
+        #         for x in inputs
+        #     ]
+        #     model_new = custom_model.cuda(device=self.device)
+        #     torch.cuda.synchronize(device=self.device)
+        #
+        #     elapsed_times = KernelEvaluation.time_execution_with_cuda_event(
+        #         model_new,
+        #         inputs,
+        #         cuda_fn,
+        #         num_trials=10,
+        #         verbose=False,
+        #         device=self.device,
+        #     )
+        #     runtime_stats = np.mean(elapsed_times)
+        #     return -runtime_stats
+        # except Exception as e:
+        #     self.save_cuda_code_and_error(program_str, e)
+        # finally:
+        #     self.args.mutex.release()
 
     def save_cuda_code_and_error(self, cuda_code, error_info):
         time_stamp = time.strftime("%Y%m%d-%H%M%S")
