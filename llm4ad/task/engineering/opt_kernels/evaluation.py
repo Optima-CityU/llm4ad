@@ -38,6 +38,7 @@ from typing import Any
 
 from llm4ad.base.opt_kernels.evaluate import Evaluation
 from llm4ad.base.code import TextFunctionProgramConverter
+from .shared_lock_server import global_file_lock
 
 __all__ = ['KernelEvaluation']
 
@@ -325,26 +326,26 @@ Here is the CUDA kernel code example you need to optimize:
             self.save_cuda_code_and_error(program_str, e)
             return None
 
+        with global_file_lock():
+            # self.args.mutex.acquire()
+            if sys.platform.startswith('linux'):
+                mp.set_start_method("spawn", force=True)
+            with mp.Pool(processes=1) as pool:
+                res = pool.apply_async(evaluate_cuda_code, (self.func_code, f"{self.operation_name}_{temp_str}", temp_dir, 0, "kernelbench"))
+                try:
+                    result = res.get(timeout=self.timeout_seconds)
+                    if "cuda_runtime" in result[0]:
+                        return -result[0]["cuda_runtime"]
+                    else:
+                        self.save_cuda_code_and_error(program_str, result[1])
+                        return None
 
-        self.args.mutex.acquire()
-        if sys.platform.startswith('linux'):
-            mp.set_start_method("spawn", force=True)
-        with mp.Pool(processes=1) as pool:
-            res = pool.apply_async(evaluate_cuda_code, (self.func_code, f"{self.operation_name}_{temp_str}", temp_dir, 0, "kernelbench"))
-            try:
-                result = res.get(timeout=self.timeout_seconds)
-                if "cuda_runtime" in result[0]:
+                except Exception as e:
+                    result = dict(cuda_runtime=np.inf, prof_string="Error"), f"{e}"
+                    self.save_cuda_code_and_error(program_str, e)
                     return -result[0]["cuda_runtime"]
-                else:
-                    self.save_cuda_code_and_error(program_str, result[1])
-                    return None
-
-            except Exception as e:
-                result = dict(cuda_runtime=np.inf, prof_string="Error"), f"{e}"
-                self.save_cuda_code_and_error(program_str, e)
-                return -result[0]["cuda_runtime"]
-            finally:
-                self.args.mutex.release()
+                # finally:
+                    # self.args.mutex.release()
 
         # try:
         #     func_module, func_spec = KernelEvaluation.load_module_from_path(python_func_path, "func_module")
