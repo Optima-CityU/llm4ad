@@ -169,7 +169,7 @@ class KernelEvaluation(Evaluation):
     def __init__(
             self,
             args,
-            timeout_seconds=3000, **kwargs
+            timeout_seconds=300, **kwargs
     ):
         python_program = TextFunctionProgramConverter.text_to_program(args.func_code)
         for each_python_func in python_program.functions:
