@@ -57,8 +57,8 @@ method_para_entry_list = []
 batch_para_entry_list = []
 method_para_value_type_list = []
 method_para_value_name_list = []
-batch_method_para = {}
-batch_problem_para = {}
+batch_method_para = {} # 存了所有已选algo的参数
+batch_problem_para = {} # 存了所有已选problem的参数
 
 batch_last_para_type = 0
 batch_last_para_name = None
@@ -69,13 +69,13 @@ objectives_var = None
 problem_para_entry_list = []
 problem_para_value_type_list = []
 problem_para_value_name_list = []
-problem_listbox2 = None
+problem_listbox2 = None # 左侧所有的task
 objectives_var2 = None
-algo_listbox2 = None
-selected_algorithms_list = []
-selected_tasks_list = []
-real_algo_listbox2 = None
-real_prob_listbox2 = None
+algo_listbox2 = None # 左侧所有的algo
+selected_algorithms_list = [] # 是个list，存了所有已经选了的algo的name
+selected_tasks_list = [] # 是个list，存了所有已经选了的task的name
+real_algo_listbox2 = None # 所有选择了的algo
+real_prob_listbox2 = None # 所有选择了的prob
 selected_problems_list = []
 
 llm_para_entry_list = []
@@ -342,7 +342,6 @@ def batch_clear_param_frame():
     for widget in para_setting_frame2.winfo_children():
         widget.destroy()
 
-    # todo 3 注意，最后一次的还没存，需要点击plot->调用reture_para()的时候，再像这样存东西
 
 ############################
 def on_algo_select(event):
@@ -496,10 +495,6 @@ def batch_exp_problem_type_select(event=None):
 
 ###############################################################################
 
-# todo 1 函数: 点击plot按钮, 得到参数，for循环，for循环里面创建process和thread，然后process和thread运行完之后再下一个for循环。注意参考notion中的代码
-# todo 1 函数：初始化表格
-# todo 1 函数：get_result, 不用怎么改，主要是需要改成修改result的
-
 def batch_on_plot_button_click():
     global batch_process1
     global batch_thread1
@@ -510,24 +505,122 @@ def batch_on_plot_button_click():
             tk.messagebox.showinfo("Warning", "Please configure the settings of LLM.")
             return
 
-        llm_para, method_para, problem_para, profiler_para = batch_return_para()
+        llm_para, method_para, problem_para, error = batch_return_para()
 
-        # todo 1 继续补充
+        if error:
+            tk.messagebox.showinfo("Warning", "Please choose the algorithm and task you want to execute.")
+            return
+
+        init_table(list(method_para),list(problem_para))
+
+        # todo 1
+        #   创建for循环，for循环里面创建process和thread
+        #       tips: 先狂写，然后最后再check有没有bug，有bug再修（大概率会有bug)
+        #       原来的运行控制的代码涉及init_fig, main_gui, get_results
+        #       process和thread运行完之后再下一个for循环。注意参考notion中的代码
+        #       thread获取结果。get_result, 不用怎么改，主要是需要改成修改result的
+        #       判断上一步有没有结束，看process1是否结束，还有have_stop_thread是不是true，但还要看一下have_stop_thread的初始解
+        #   结果显示，表格最好能点开看具体的运行配置和结果（log_files）
+        #   注意每次重新点击这个button的时候，需要把上一个表格清除
+        #   注意，结束后需要把run的button恢复到可以点击，stop按钮恢复到不可点击
+
+        plot_button2['state'] = tk.DISABLED
+        stop_button2['state'] = tk.NORMAL
+        for method_key, method_value in method_para.items():
+            for problem_key, problem_value in problem_para.items():
+                profiler_para = {}
+                profiler_para['name'] = 'ProfilerBase'
+                temp_str1 = problem_value['name']
+                temp_str2 = method_value['name']
+                process_start_time = datetime.now(pytz.timezone("Asia/Shanghai"))
+                b = os.path.abspath('..')
+                log_folder = b + '/GUI/logs/' + process_start_time.strftime(
+                    "%Y%m%d_%H%M%S") + f'_{temp_str1}' + f'_{temp_str2}'
+                profiler_para['log_dir'] = log_folder
+
+                #########
+
+                pass
+
 
     except ValueError:
         print("Invalid input. Please enter a number.")
 
-def batch_return_para():
-    # todo 1 继续补充
-    # todo 1 注意需要补充
+def init_table(methods_name, problems_name):
 
-    pass
+    for widget in right_frame2.winfo_children():
+        widget.destroy()
+
+    tree = ttk.Treeview(right_frame2)
+    tree["columns"] = problems_name
+    # 配置行表头列（第一列）
+    tree.column("#0", width=100, minwidth=100, anchor=tk.CENTER)
+    tree.heading("#0", text="", anchor=tk.CENTER)
+    # 配置其他列（列表头）
+    for col in problems_name:
+        tree.column(col, width=100, minwidth=100, anchor=tk.CENTER)
+        tree.heading(col, text=col, anchor=tk.CENTER)
+    # 添加行数据（包括行表头）
+    for i, row_header in enumerate(methods_name):
+        # 使用行表头作为第一列的值，其余列为空
+        values = [""] * len(problems_name)
+        tree.insert("", i, text=row_header, values=values)
+    tree.pack(padx=10, pady=10)
+
+def batch_return_para():
+    global batch_method_para
+    global batch_problem_para
+
+    llm_para = {}
+    method_para = {}
+    problem_para = {}
+    error = False
+
+    batch_clear_param_frame()
+
+    ####################
+
+    if len(batch_method_para) == 0:
+        error = True
+        return llm_para, method_para, problem_para, error
+    if len(batch_problem_para) == 0:
+        error = True
+        return llm_para, method_para, problem_para, error
+
+    for i in range(len(llm_para_entry_list2)):
+        llm_para[llm_para_value_name_list[i]] = llm_para_entry_list2[i].get()
+
+    for key, value in batch_method_para.items():
+        method_para[key] = {}
+        for i in range(len(value['name'])):
+            method_para[key][value['name'][i]] = value['value'][i].get()
+            if value['type'][i] == '<class \'int\'>':
+                method_para[key][value['name'][i]] = int(value['value'][i].get())
+
+        method_para[key]['num_samplers'] = method_para[key]['num_evaluators']
+
+    for key, value in batch_problem_para.items():
+        problem_para[key] = {}
+        for i in range(len(value['name'])):
+            problem_para[key][value['name'][i]] = value['value'][i].get()
+            if value['type'][i] == '<class \'int\'>':
+                problem_para[key][value['name'][i]] = int(value['value'][i].get())
+
+    ####################
+
+    print(llm_para)
+    print(method_para)
+    print(problem_para)
+
+    return llm_para, method_para, problem_para, error
 
 def batch_check_para():
     for i in llm_para_entry_list2[1:]:
         if not i.have_content:
             return False
     return True
+
+######################################################################
 
 def on_plot_button_click():
     global process1
@@ -560,13 +653,11 @@ def on_plot_button_click():
     except ValueError:
         print("Invalid input. Please enter a number.")
 
-
 def check_para():
     for i in llm_para_entry_list[1:]:
         if not i.have_content:
             return False
     return True
-
 
 def return_para():
     llm_para = {}
@@ -611,8 +702,6 @@ def return_para():
     print(profiler_para)
 
     return llm_para, method_para, problem_para, profiler_para
-
-######################################################################
 
 def init_fig(max_sample_nums):
     global stop_thread
@@ -779,14 +868,11 @@ def display_plot(index):
 
     value_label.config(text=f"{index + 1} samples")
 
-######################################################################
-
 def display_alg(alg):
     code_display.config(state='normal')
     code_display.delete(1.0, 'end')
     code_display.insert(tk.END, alg)
     code_display.config(state='disabled')
-
 
 def except_error():
     global process1
@@ -798,10 +884,8 @@ def except_error():
     except:
         return False
 
-
 def check_finish(log_dir, index, max_sample_nums):
     return os.path.exists(log_dir + '/population/' + 'end.json') or index > max_sample_nums
-
 
 def check(index, log_dir):
     temp_var1 = (index - 1) // 200
@@ -814,7 +898,6 @@ def check(index, log_dir):
         if len(data) >= ((index-1) % 200)+1:
             return_value = True
     return return_value
-
 
 def stop_run_thread():
     thread_stop = threading.Thread(target=stop_run)
@@ -838,7 +921,6 @@ def stop_run():
         time.sleep(0.5)
         _ = 'stop'
     plot_button['state'] = tk.NORMAL
-
 
 def exit_run():
     stop_run_thread()
@@ -1209,13 +1291,11 @@ if __name__ == '__main__':
 
     ##########################################################
 
-    # todo 1 为按钮绑定函数
-    # todo 1 做到这里了，上面的组件都不用管
-    # todo 1 判断上一步有没有结束，看process1是否结束，还有have_stop_thread是不是true，但还要看一下have_stop_thread的初始解
+    # todo 1 做到这里了（为按钮绑定函数），上面的组件都不用管
 
     # plot_button2 = ttk.Button(left_frame2, text="Run", command=on_plot_button_click, width=12,
     #                          bootstyle="primary-outline", state=tk.NORMAL)
-    plot_button2 = ttk.Button(left_frame2, text="Run", width=12,
+    plot_button2 = ttk.Button(left_frame2, text="Run", width=12, command=batch_on_plot_button_click,
                               bootstyle="primary-outline", state=tk.NORMAL)
     plot_button2.pack(side='left', pady=20, expand=True)
 
@@ -1224,32 +1304,6 @@ if __name__ == '__main__':
     stop_button2 = ttk.Button(left_frame2, text="Stop", width=12, bootstyle="warning-outline",
                               state=tk.DISABLED)
     stop_button2.pack(side='left', pady=20, expand=True)
-
-    ##########################################################
-
-    # todo 1 右边显示表格
-
-    data_temp = [
-        [1.23, 4.56, 7.89, 2.34],
-        [5.67, 8.90, 1.23, 4.56],
-        [7.89, 2.34, 5.67, 8.90],
-        [1.23, 4.56, 7.89, 2.34],
-        [5.67, 8.90, 1.23, 4.56]
-    ]
-    columns = [f"列 {i + 1}" for i in range(len(data_temp[0]))]
-    tree_temp = ttk.Treeview(right_frame2, columns=columns, show="headings")
-
-    # 设置表头
-    for col in columns:
-        tree_temp.heading(col, text=col)
-        tree_temp.column(col, width=80, anchor="center")
-
-    # 插入数据
-    for row in data_temp:
-        tree_temp.insert("", "end", values=row)
-
-    # 显示表格
-    tree_temp.pack(padx=10, pady=10)
 
     ##########################################################
 
