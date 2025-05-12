@@ -87,6 +87,8 @@ llm_para_placeholder_list = ['HttpsApi', 'api.bltcy.top', 'sk-xxxxxxxxxxxxxxxxxx
 default_method = 'eoh'
 default_problem = ['admissible_set', 'car_mountain', 'bactgrow']
 
+tree = None
+
 log_dir = None
 figures = None
 ax = None
@@ -496,6 +498,11 @@ def batch_exp_problem_type_select(event=None):
 ###############################################################################
 
 def batch_on_plot_button_click():
+    # 启动后台线程执行任务队列
+    task_thread = threading.Thread(target=batch_run)
+    task_thread.start()
+
+def batch_run():
     global batch_process1
     global batch_thread1
     global btach_log_dir
@@ -514,20 +521,22 @@ def batch_on_plot_button_click():
         init_table(list(method_para),list(problem_para))
 
         # todo 1
-        #   创建for循环，for循环里面创建process和thread
-        #       tips: 先狂写，然后最后再check有没有bug，有bug再修（大概率会有bug)
-        #       原来的运行控制的代码涉及init_fig, main_gui, get_results
-        #       process和thread运行完之后再下一个for循环。注意参考notion中的代码
-        #       thread获取结果。get_result, 不用怎么改，主要是需要改成修改result的
-        #       判断上一步有没有结束，看process1是否结束，还有have_stop_thread是不是true，但还要看一下have_stop_thread的初始解
-        #   结果显示，表格最好能点开看具体的运行配置和结果（log_files）
-        #   注意每次重新点击这个button的时候，需要把上一个表格清除
-        #   注意，结束后需要把run的button恢复到可以点击，stop按钮恢复到不可点击
+        #   功能
+        #       stop按钮对应的方法
+        #   存在的bug/异常处理
+        #       如果运行中，进程出现bug?
+        #       最重要的，不要有内存泄漏，以及停止了之后，直接把进程/线程kill掉，不要继续使用token了
+        #       好像直接中止这个程序不会中止这个进程，这个进程还会继续。这个问题一定要解决，同时不知道single(非batch)的会不会有这个问题
+        #       如果卡死，则需要加队列(queue)，具体看deepseek
+        #       如果加入了algo/task，然后删掉加入的，使得algo/task为空，也是能跑的。
+        #       点击run按钮，会保存最后一次修改的参数，有没有什么情况，会导致报错（比如从来没点击过添加的algo/task,加入进来直接run了)，会不会报错？等等
+        #   功能
+        #       结果显示，表格最好能点开看具体的运行配置和结果（log_files)
 
         plot_button2['state'] = tk.DISABLED
         stop_button2['state'] = tk.NORMAL
-        for method_key, method_value in method_para.items():
-            for problem_key, problem_value in problem_para.items():
+        for row_index, (method_key, method_value) in enumerate(method_para.items()):
+            for col_index, (problem_key, problem_value) in enumerate(problem_para.items()):
                 profiler_para = {}
                 profiler_para['name'] = 'ProfilerBase'
                 temp_str1 = problem_value['name']
@@ -540,13 +549,24 @@ def batch_on_plot_button_click():
 
                 #########
 
-                pass
+                process = multiprocessing.Process(target=main_gui, args=(llm_para, method_value, problem_value, profiler_para))
+                # thread = threading.Thread(target=get_results, args=(profiler_para['log_dir'], method_para['max_sample_nums'],))
+                thread = threading.Thread(target=batch_get_results,args=(profiler_para['log_dir'],method_value['max_sample_nums'],row_index,col_index))
+
+                process.start()
+                thread.start()
+
+                process.join()
+                thread.join()
+        plot_button2['state'] = tk.NORMAL
+        stop_button2['state'] = tk.DISABLED
 
 
     except ValueError:
-        print("Invalid input. Please enter a number.")
+        print("Invalid input.")
 
 def init_table(methods_name, problems_name):
+    global tree
 
     for widget in right_frame2.winfo_children():
         widget.destroy()
@@ -620,6 +640,60 @@ def batch_check_para():
             return False
     return True
 
+def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
+    index = 1
+
+    while (not check_finish(log_dir, index, max_sample_nums)):
+        time.sleep(0.5)
+        new = check(index, log_dir)
+        if new:
+            new_value = batch_get_latest_result(index, log_dir)
+            update_cell_value(row_index, col_index, new_value)
+
+            index += 1
+
+def batch_get_latest_result(index, log_dir):
+    generation = []
+    best_value_list = []
+    all_best_value = float('-inf')
+    best_alg = None
+
+    file_name_list = [log_dir + f'/samples/samples_{i * 200 + 1}~{(i + 1) * 200}.json' for i in
+                      range(((index - 1) // 200) + 1)]
+
+    data = []
+    for file_name in file_name_list:
+        with open(file_name) as file:
+            data.append(json.load(file))
+
+    for i in range(index):
+        individual = data[i // 200][((i + 1) % 200) - 1]
+        code = individual['function']
+        # alg = individual['algorithm']
+        obj = individual['score']
+        if obj is None:
+            generation.append(i + 1)
+            best_value_list.append(all_best_value)
+            continue
+        if obj > all_best_value:
+            all_best_value = obj
+            best_alg = code
+        generation.append(i + 1)
+        best_value_list.append(all_best_value)
+
+    generation = np.array(generation)
+    best_value_list = np.array(best_value_list)
+
+    return all_best_value
+
+def update_cell_value(row_index, col_index, new_value):
+    global tree
+    row_id = tree.get_children()[row_index]
+    current_values = list(tree.item(row_id, 'values'))
+    current_values[col_index] = new_value
+    tree.item(row_id, values=current_values)
+
+
 ######################################################################
 
 def on_plot_button_click():
@@ -651,7 +725,7 @@ def on_plot_button_click():
         doc_button['state'] = tk.NORMAL
 
     except ValueError:
-        print("Invalid input. Please enter a number.")
+        print("Invalid input.")
 
 def check_para():
     for i in llm_para_entry_list[1:]:
@@ -757,6 +831,8 @@ def init_fig(max_sample_nums):
 
     canvas = FigureCanvasTkAgg(figures, master=plot_frame)
     canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+######################################################################
 
 def get_results(log_dir, max_sample_nums):
     global figures
@@ -899,6 +975,8 @@ def check(index, log_dir):
             return_value = True
     return return_value
 
+######################################################################
+
 def stop_run_thread():
     thread_stop = threading.Thread(target=stop_run)
     thread_stop.start()
@@ -926,6 +1004,8 @@ def exit_run():
     stop_run_thread()
     root.destroy()
     sys.exit(0)
+
+######################################################################
 
 def show_frame(frame, button):
     frame.tkraise()
