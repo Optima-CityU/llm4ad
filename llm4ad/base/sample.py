@@ -28,9 +28,12 @@ from .code import Program, Function, TextFunctionProgramConverter
 
 
 class LLM:
-    """Language model that predicts continuation of provided source code."""
-
     def __init__(self, *, do_auto_trim=True, debug_mode=False):
+        """Language model interface.
+        This interface defines how to interact with LLM api / deployed LLM.
+        Args:
+            do_auto_trim: if set to True, then automatically trim the code from response content.
+        """
         self.do_auto_trim = do_auto_trim
         self.debug_mode = debug_mode
 
@@ -55,6 +58,12 @@ class LLM:
         """Returns multiple predicted continuations of `prompt`.
         """
         return [self.draw_sample(p, *args, **kwargs) for p in prompts]
+
+    def close(self):
+        """Defines how to close the connection to API,
+        or release the GPU resources at the end of the program search.
+        """
+        pass
 
 
 class SampleTrimmer:
