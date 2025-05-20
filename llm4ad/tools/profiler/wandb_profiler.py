@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Optional
+from typing import Optional, Literal
 
 from ...base import Function
 from .profile import ProfilerBase
@@ -42,8 +42,9 @@ class WandBProfiler(ProfilerBase):
                  initial_num_samples=0,
                  log_style='complex',
                  create_random_path=True,
+                 fork_proc: Literal['auto'] | bool = 'auto',
                  **wandb_init_kwargs):
-        """
+        """Weights and Biases profiler.
         Args:
             wandb_project_name : the project name in which you sync your results.
             log_dir            : the directory of current run
@@ -51,6 +52,7 @@ class WandBProfiler(ProfilerBase):
             method_name        : the name of the search method.
             initial_num_samples: the sample order start with `initial_num_samples`.
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
+            fork_proc          : whether to fork the wandb process.
         """
         super().__init__(log_dir=log_dir,
                          evaluation_name=evaluation_name,
@@ -62,8 +64,24 @@ class WandBProfiler(ProfilerBase):
 
         self._wandb_project_name = wandb_project_name
 
-        # for MacOS and Linux
-        if sys.platform.startswith('darwin') or sys.platform.startswith('linux'):
+        if fork_proc == 'auto':
+            # for MacOS and Linux
+            if sys.platform.startswith('darwin') or sys.platform.startswith('linux'):
+                setting = wandb.Settings(start_method='fork')
+                self._logger_wandb = wandb.init(
+                    project=self._wandb_project_name,
+                    dir=self._log_dir,
+                    settings=setting,
+                    **wandb_init_kwargs
+                )
+            else:  # for Windows
+                wandb.setup()
+                self._logger_wandb = wandb.init(
+                    project=self._wandb_project_name,
+                    dir=self._log_dir,
+                    **wandb_init_kwargs
+                )
+        elif fork_proc is True:
             setting = wandb.Settings(start_method='fork')
             self._logger_wandb = wandb.init(
                 project=self._wandb_project_name,
@@ -71,7 +89,7 @@ class WandBProfiler(ProfilerBase):
                 settings=setting,
                 **wandb_init_kwargs
             )
-        else:  # for Windows
+        else:
             wandb.setup()
             self._logger_wandb = wandb.init(
                 project=self._wandb_project_name,
