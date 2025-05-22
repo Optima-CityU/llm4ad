@@ -96,7 +96,12 @@ canvas = None
 
 batch_process1 = None
 batch_thread1 = None
-btach_log_dir = None
+batch_log_dir = None
+
+batch_current_process = None
+batch_current_thread = None
+batch_stop_flag = False  # 停止标志
+batch_lock = threading.Lock()  # 防止竞态条件
 
 ##########################################################
 
@@ -497,6 +502,25 @@ def batch_exp_problem_type_select(event=None):
 
 ###############################################################################
 
+def batch_on_stop_button_click():
+    global batch_current_process, batch_current_thread, batch_stop_flag
+    with batch_lock:
+        batch_stop_flag = True  # 设置停止标志
+
+        # 终止当前正在运行的进程
+        if batch_current_process and batch_current_process.is_alive():
+            batch_current_process.terminate()
+            batch_current_process.join()
+
+        # 中断当前线程（通过标志）
+        if batch_current_thread and batch_current_thread.is_alive():
+            # 由于无法强制终止线程，依赖线程内检查标志
+            pass  # 实际中止逻辑在batch_get_results中处理
+
+        # 更新GUI状态
+        plot_button2['state'] = tk.NORMAL
+        stop_button2['state'] = tk.DISABLED
+
 def batch_on_plot_button_click():
     # 启动后台线程执行任务队列
     task_thread = threading.Thread(target=batch_run)
@@ -505,7 +529,8 @@ def batch_on_plot_button_click():
 def batch_run():
     global batch_process1
     global batch_thread1
-    global btach_log_dir
+    global batch_log_dir
+    global batch_current_process, batch_current_thread, batch_stop_flag, batch_lock
 
     try:
         if not batch_check_para():
@@ -530,13 +555,21 @@ def batch_run():
         #       如果卡死，则需要加队列(queue)，具体看deepseek
         #       如果加入了algo/task，然后删掉加入的，使得algo/task为空，也是能跑的。
         #       点击run按钮，会保存最后一次修改的参数，有没有什么情况，会导致报错（比如从来没点击过添加的algo/task,加入进来直接run了)，会不会报错？等等
+        #       每次重新跑,会把之前跑的覆盖了吗.各种变量,注意这次跑不要用上次跑的变量
         #   功能
         #       结果显示，表格最好能点开看具体的运行配置和结果（log_files)
+
+        with batch_lock:
+            batch_stop_flag = False  # 重置停止标志
 
         plot_button2['state'] = tk.DISABLED
         stop_button2['state'] = tk.NORMAL
         for row_index, (method_key, method_value) in enumerate(method_para.items()):
             for col_index, (problem_key, problem_value) in enumerate(problem_para.items()):
+                with batch_lock:
+                    if batch_stop_flag:
+                        break
+
                 profiler_para = {}
                 profiler_para['name'] = 'ProfilerBase'
                 temp_str1 = problem_value['name']
@@ -548,16 +581,29 @@ def batch_run():
                 profiler_para['log_dir'] = log_folder
 
                 #########
+                with batch_lock:
+                    batch_current_process = multiprocessing.Process(target=main_gui, args=(llm_para, method_value, problem_value, profiler_para))
+                    # thread = threading.Thread(target=get_results, args=(profiler_para['log_dir'], method_para['max_sample_nums'],))
+                    batch_current_thread = threading.Thread(target=batch_get_results,args=(profiler_para['log_dir'],method_value['max_sample_nums'],row_index,col_index))
 
-                process = multiprocessing.Process(target=main_gui, args=(llm_para, method_value, problem_value, profiler_para))
-                # thread = threading.Thread(target=get_results, args=(profiler_para['log_dir'], method_para['max_sample_nums'],))
-                thread = threading.Thread(target=batch_get_results,args=(profiler_para['log_dir'],method_value['max_sample_nums'],row_index,col_index))
+                batch_current_process.start()
+                batch_current_thread.start()
 
-                process.start()
-                thread.start()
+                batch_current_process.join()
+                batch_current_thread.join()
 
-                process.join()
-                thread.join()
+                with batch_lock:
+                    batch_current_process = None
+                    batch_current_thread = None
+
+                # 再次检查停止标志
+                with batch_lock:
+                    if batch_stop_flag:
+                        break
+            with batch_lock:
+                if batch_stop_flag:
+                    break
+
         plot_button2['state'] = tk.NORMAL
         stop_button2['state'] = tk.DISABLED
 
@@ -645,6 +691,9 @@ def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
 
     while (not check_finish(log_dir, index, max_sample_nums)):
         time.sleep(0.5)
+        with batch_lock:
+            if batch_stop_flag:
+                return
         new = check(index, log_dir)
         if new:
             new_value = batch_get_latest_result(index, log_dir)
@@ -1381,7 +1430,7 @@ if __name__ == '__main__':
 
     # stop_button2 = ttk.Button(left_frame2, text="Stop", command=stop_run_thread, width=12, bootstyle="warning-outline",
     #                          state=tk.DISABLED)
-    stop_button2 = ttk.Button(left_frame2, text="Stop", width=12, bootstyle="warning-outline",
+    stop_button2 = ttk.Button(left_frame2, text="Stop", command=batch_on_stop_button_click, width=12, bootstyle="warning-outline",
                               state=tk.DISABLED)
     stop_button2.pack(side='left', pady=20, expand=True)
 
