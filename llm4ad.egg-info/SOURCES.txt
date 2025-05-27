@@ -41,6 +41,7 @@ setup.py
 ./llm4ad/task/engineering/__init__.py
 ./llm4ad/task/engineering/opt_kernels/__init__.py
 ./llm4ad/task/engineering/opt_kernels/evaluation.py
+./llm4ad/task/engineering/opt_kernels/shared_lock_server.py
 ./llm4ad/task/machine_learning/__init__.py
 ./llm4ad/task/machine_learning/acrobot/__init__.py
 ./llm4ad/task/machine_learning/acrobot/evaluation.py
@@ -156,6 +157,7 @@ setup.py
 ./llm4ad/tools/llm/__init__.py
 ./llm4ad/tools/llm/llm_api_https.py
 ./llm4ad/tools/llm/llm_api_openai.py
+./llm4ad/tools/llm/llm_ensembled.py
 ./llm4ad/tools/profiler/__init__.py
 ./llm4ad/tools/profiler/profile.py
 ./llm4ad/tools/profiler/tensorboard_profiler.py

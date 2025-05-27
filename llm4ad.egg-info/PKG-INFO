@@ -1,4 +1,4 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: llm4ad
 Version: 1.0
 Summary: Large Language Model for Algorithm Design Platform 
@@ -18,8 +18,3 @@ Requires-Dist: pytz
 Requires-Dist: matplotlib
 Requires-Dist: python-docx
 Requires-Dist: ttkbootstrap
-Dynamic: author
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
