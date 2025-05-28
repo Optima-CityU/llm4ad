@@ -8,14 +8,12 @@
 **/*.log
 **/*.out
 **/logs
-**/.idea
 **/samples*
 **/sample2pkl.py
 GUI/outputs
 **/*wandb*
 **/test
 /.gitattributes
-ysy_main.py
 ysy_main.py
 llm4ad.egg-info/top_level.txt
 llm4ad.egg-info/SOURCES.txt

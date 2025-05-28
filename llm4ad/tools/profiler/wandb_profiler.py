@@ -37,8 +37,6 @@ class WandBProfiler(ProfilerBase):
                  wandb_project_name: str,
                  log_dir: Optional[str] = None,
                  *,
-                 evaluation_name='Problem',
-                 method_name='Method',
                  initial_num_samples=0,
                  log_style='complex',
                  create_random_path=True,
@@ -48,15 +46,11 @@ class WandBProfiler(ProfilerBase):
         Args:
             wandb_project_name : the project name in which you sync your results.
             log_dir            : the directory of current run
-            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
-            method_name        : the name of the search method.
             initial_num_samples: the sample order start with `initial_num_samples`.
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
             fork_proc          : whether to fork the wandb process.
         """
         super().__init__(log_dir=log_dir,
-                         evaluation_name=evaluation_name,
-                         method_name=method_name,
                          initial_num_samples=initial_num_samples,
                          log_style=log_style,
                          create_random_path=create_random_path,
@@ -105,7 +99,7 @@ class WandBProfiler(ProfilerBase):
         """
         try:
             self._register_function_lock.acquire()
-            self.__class__._num_samples += 1
+            self._num_samples += 1
             self._record_and_print_verbose(function, resume_mode=resume_mode)
             self._write_wandb()
             self._write_json(function)
@@ -117,21 +111,21 @@ class WandBProfiler(ProfilerBase):
             {
                 'Best Score of Function': self._cur_best_program_score
             },
-            step=self.__class__._num_samples
+            step=self._num_samples
         )
         self._logger_wandb.log(
             {
                 'Valid Function Num': self._evaluate_success_program_num,
                 'Invalid Function Num': self._evaluate_failed_program_num
             },
-            step=self.__class__._num_samples
+            step=self._num_samples
         )
         self._logger_wandb.log(
             {
                 'Total Sample Time': self._tot_sample_time,
                 'Total Evaluate Time': self._tot_evaluate_time
             },
-            step=self.__class__._num_samples
+            step=self._num_samples
         )
 
     def finish(self):

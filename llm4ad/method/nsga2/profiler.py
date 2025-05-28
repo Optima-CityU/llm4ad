@@ -19,24 +19,20 @@ from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
 
 
 class NSGA2Profiler(ProfilerBase):
-    _cur_gen = 0
 
     def __init__(self,
                  log_dir: str | None = None,
-                 evaluation_name='Problem',
-                 method_name='NSGA2',
                  num_objs=2,
                  *,
                  initial_num_samples=0,
                  log_style='complex',
                  **kwargs):
-        super().__init__(evaluation_name=evaluation_name,
-                         method_name=method_name,
-                         log_dir=log_dir,
+        super().__init__(log_dir=log_dir,
                          initial_num_samples=initial_num_samples,
                          log_style=log_style,
                          num_objs=num_objs,
                          **kwargs)
+        self._cur_gen = 0
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
@@ -47,8 +43,8 @@ class NSGA2Profiler(ProfilerBase):
     def register_population(self, pop: Population):
         try:
             self._pop_lock.acquire()
-            if (self.__class__._num_samples == 0 or
-                    pop.generation == self.__class__._cur_gen):
+            if (self._num_samples == 0 or
+                    pop.generation == self._cur_gen):
                 return
             funcs = pop.population  # type: List[Function]
             funcs_json = []  # type: List[Dict]
@@ -87,7 +83,7 @@ class NSGA2Profiler(ProfilerBase):
             path = os.path.join(self._elitist_dir, f'elitist_{pop.generation}.json')
             with open(path, 'w') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
-            self.__class__._cur_gen += 1
+            self._cur_gen += 1
         finally:
             if self._pop_lock.locked():
                 self._pop_lock.release()
@@ -106,7 +102,7 @@ class NSGA2Profiler(ProfilerBase):
         if not self._log_dir:
             return
 
-        sample_order = getattr(self.__class__, '_num_samples', 0)
+        sample_order = self._num_samples
         func_score = function.score
         if function.score is not None:
             if np.isinf(np.array(function.score)).any():
@@ -144,14 +140,17 @@ class NSGA2TensorboardProfiler(TensorboardProfiler, NSGA2Profiler):
 
     def __init__(self,
                  log_dir: str | None = None,
-                 evaluation_name='Problem',
-                 method_name='NSGA2',
                  *,
                  initial_num_samples=0,
                  log_style='complex',
                  **kwargs):
-        NSGA2Profiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, **kwargs)
-        TensorboardProfiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, initial_num_samples=initial_num_samples, log_style=log_style, **kwargs)
+        NSGA2Profiler.__init__(self,
+                               log_dir=log_dir,
+                               **kwargs)
+        TensorboardProfiler.__init__(self, log_dir=log_dir,
+                                     initial_num_samples=initial_num_samples,
+                                     log_style=log_style,
+                                     **kwargs)
 
     def finish(self):
         if self._log_dir:
@@ -170,18 +169,14 @@ class NSGA2WandbProfiler(WandBProfiler, NSGA2Profiler):
     def __init__(self,
                  wandb_project_name: str,
                  log_dir: str | None = None,
-                 evaluation_name="Problem",
-                 method_name="NSGA2",
                  *,
                  initial_num_samples=0,
                  log_style='complex',
                  **kwargs):
-        NSGA2Profiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, **kwargs)
+        NSGA2Profiler.__init__(self, log_dir=log_dir, **kwargs)
         WandBProfiler.__init__(self,
                                wandb_project_name=wandb_project_name,
                                log_dir=log_dir,
-                               evaluation_name=evaluation_name,
-                               method_name=method_name,
                                initial_num_samples=initial_num_samples,
                                log_style=log_style, **kwargs)
         self._pop_lock = Lock()

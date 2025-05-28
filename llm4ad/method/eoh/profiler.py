@@ -17,13 +17,10 @@ from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
 
 
 class EoHProfiler(ProfilerBase):
-    _cur_gen = 0
 
     def __init__(self,
                  log_dir: Optional[str] = None,
                  *,
-                 evaluation_name='Problem',
-                 method_name='EoH',
                  initial_num_samples=0,
                  log_style='complex',
                  create_random_path=True,
@@ -31,18 +28,15 @@ class EoHProfiler(ProfilerBase):
         """EoH Profiler
         Args:
             log_dir            : the directory of current run
-            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
-            method_name        : the name of the search method.
             initial_num_samples: the sample order start with `initial_num_samples`.
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
         """
-        super().__init__(evaluation_name=evaluation_name,
-                         method_name=method_name,
-                         log_dir=log_dir,
+        super().__init__(log_dir=log_dir,
                          initial_num_samples=initial_num_samples,
                          log_style=log_style,
                          create_random_path=create_random_path,
                          **kwargs)
+        self._cur_gen = 0
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
@@ -51,8 +45,8 @@ class EoHProfiler(ProfilerBase):
     def register_population(self, pop: Population):
         try:
             self._pop_lock.acquire()
-            if (self.__class__._num_samples == 0 or
-                    pop.generation == self.__class__._cur_gen):
+            if (self._num_samples == 0 or
+                    pop.generation == self._cur_gen):
                 return
             funcs = pop.population  # type: List[Function]
             funcs_json = []  # type: List[Dict]
@@ -66,7 +60,7 @@ class EoHProfiler(ProfilerBase):
             path = os.path.join(self._ckpt_dir, f'pop_{pop.generation}.json')
             with open(path, 'w') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
-            self.__class__._cur_gen += 1
+            self._cur_gen += 1
         finally:
             if self._pop_lock.locked():
                 self._pop_lock.release()
@@ -83,7 +77,7 @@ class EoHProfiler(ProfilerBase):
         if not self._log_dir:
             return
 
-        sample_order = getattr(self.__class__, '_num_samples', 0)
+        sample_order = self._num_samples
         content = {
             'sample_order': sample_order,
             'algorithm': function.algorithm,  # Added when recording
@@ -117,8 +111,6 @@ class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
     def __init__(self,
                  log_dir: str | None = None,
                  *,
-                 evaluation_name='Problem',
-                 method_name='EoH',
                  initial_num_samples=0,
                  log_style='complex',
                  create_random_path=True,
@@ -127,23 +119,17 @@ class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
         Args:
             log_dir            : the directory of current run
             evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
-            method_name        : the name of the search method.
-            initial_num_samples: the sample order start with `initial_num_samples`.
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
             **kwargs           : kwargs for wandb
         """
         EoHProfiler.__init__(
             self, log_dir=log_dir,
-            evaluation_name=evaluation_name,
             create_random_path=create_random_path,
-            method_name=method_name,
             **kwargs
         )
         TensorboardProfiler.__init__(
             self,
             log_dir=log_dir,
-            evaluation_name=evaluation_name,
-            method_name=method_name,
             initial_num_samples=initial_num_samples,
             log_style=log_style,
             create_random_path=create_random_path,
@@ -162,14 +148,11 @@ class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
 
 
 class EoHWandbProfiler(WandBProfiler, EoHProfiler):
-    _cur_gen = 0
 
     def __init__(self,
                  wandb_project_name: str,
                  log_dir: str | None = None,
                  *,
-                 evaluation_name='Problem',
-                 method_name='EoH',
                  initial_num_samples=0,
                  log_style='complex',
                  create_random_path=True,
@@ -178,8 +161,6 @@ class EoHWandbProfiler(WandBProfiler, EoHProfiler):
         Args:
             wandb_project_name : the name of the wandb project
             log_dir            : the directory of current run
-            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
-            method_name        : the name of the search method.
             initial_num_samples: the sample order start with `initial_num_samples`.
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
             **kwargs           : kwargs for wandb
@@ -187,17 +168,13 @@ class EoHWandbProfiler(WandBProfiler, EoHProfiler):
         EoHProfiler.__init__(
             self,
             log_dir=log_dir,
-            evaluation_name=evaluation_name,
             create_random_path=create_random_path,
-            method_name=method_name,
             **kwargs
         )
         WandBProfiler.__init__(
             self,
             wandb_project_name=wandb_project_name,
             log_dir=log_dir,
-            evaluation_name=evaluation_name,
-            method_name=method_name,
             initial_num_samples=initial_num_samples,
             log_style=log_style,
             create_random_path=create_random_path,
