@@ -349,7 +349,7 @@ Here is the CUDA kernel code example you need to optimize:
 
     def save_cuda_code_and_error(self, cuda_code, error_info):
         time_stamp = time.strftime("%Y%m%d-%H%M%S")
-        error_dir = os.path.join(self.args.res_path, f"error_{time_stamp}")
+        error_dir = os.path.join(self.args.res_path,"error", time_stamp)
         os.makedirs(error_dir, exist_ok=True)
         with open(os.path.join(error_dir, f"cuda_code.cu"), "w") as f:
             f.write(cuda_code)
