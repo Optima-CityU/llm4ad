@@ -2,16 +2,28 @@ import time
 import random
 import itertools
 from typing import Any, Optional, Union, Callable
+def markdown_codeblock_extract(response: str) -> str:
+    lines = response.split("\n")
+    buf = ""
+    in_codeblock = False
+    for ln in lines:
+        if ln.strip().startswith("```"):
+            if in_codeblock:
+                break
+            else:
+                in_codeblock = True
+        elif in_codeblock:
+            buf += ln + "\n"
+    return buf
 
-
-
+from .coevoprompts import CoEvoPrompt
 
 class ObservationNode:
     def __init__(
-            self, task_info_inst, coevo_paras,
+            self, _task_description_str, coevo_paras,
             layer_num: int, prev_observation_strs: tuple[str, ...] = ()
     ) -> None:
-        self.task_info_inst = task_info_inst
+        self._task_description_str = _task_description_str
         self.coevo_paras = coevo_paras
 
         self.layer_num = layer_num
@@ -36,23 +48,23 @@ class ObservationNode:
 
         # Getting Observations from LLM
         get_observations_prompt = CoEvoPrompt.get_init_observation_prompt(
-            self.task_info_inst, self.coevo_paras, self.prev_observation_strs, self.layer_num
+            self._task_description_str, self.coevo_paras, self.prev_observation_strs, self.layer_num
         )
-        obs_str = llm_inst.get_response(get_observations_prompt)
+        obs_str = llm_inst.draw_sample(get_observations_prompt)
 
         # From Observation String to List
         get_parse_into_list_prompt = get_observations_prompt + (
             {"role": "assistant", "content": obs_str},
             {"role": "user", "content": CoEvoPrompt.FORMAT_INTO_LIST_PROMPT}
         )
-        obs_str_list = llm_inst.get_response(get_parse_into_list_prompt)
+        obs_str_list = llm_inst.draw_sample(get_parse_into_list_prompt)
 
         # Filter out important Observations
         filter_observations_prompt = get_parse_into_list_prompt + (
             {"role": "assistant", "content": obs_str_list},
             {"role": "user", "content": CoEvoPrompt.FILTER_TO_USEFUL_LIST_PROMPT}
         )
-        filtered_obs_str_list = llm_inst.get_response(filter_observations_prompt)
+        filtered_obs_str_list = llm_inst.draw_sample(filter_observations_prompt)
 
         # Parse into python lists
         parse_to_python_prompt = filter_observations_prompt + (
@@ -63,9 +75,9 @@ class ObservationNode:
         MAX_PARSE_TRIES = 3
         retry = 0
         while True:
-            parsed_obs_python_list = llm_inst.get_response(parse_to_python_prompt)
+            parsed_obs_python_list = llm_inst.draw_sample(parse_to_python_prompt)
             try:
-                attempted_parse = eval(parsing_utils.markdown_codeblock_extract(parsed_obs_python_list))
+                attempted_parse = eval(markdown_codeblock_extract(parsed_obs_python_list))
                 assert isinstance(attempted_parse, list)
                 assert all(isinstance(parse, str) for parse in attempted_parse)
                 self.get_obs_time = time.time() - get_obs_time
@@ -116,4 +128,4 @@ class ObservationNode:
 
 
     def create_node_like(self, observation_combo: tuple[str, ...]) -> "ObservationNode":
-        return ObservationNode(self.task_info_inst, self.coevo_paras, self.layer_num + 1, observation_combo)
+        return ObservationNode(self._task_description_str, self.coevo_paras, self.layer_num + 1, observation_combo)

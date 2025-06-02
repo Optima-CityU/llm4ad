@@ -40,7 +40,10 @@ from ...base.opt_kernels import KERFunction,KERProgram, KERTextFunctionProgramCo
 from ...base.opt_kernels.evaluate import CPPSecureEvaluator
 from ...tools.profiler import ProfilerBase
 
+import numpy as np
 from .coevo_node import ObservationNode
+from .coevoprompts import CoEvoPrompt
+from .coevoparas import CoEvoParas
 
 
 class CoEvo:
@@ -156,6 +159,9 @@ class CoEvo:
         if profiler is not None:
             self._profiler.record_parameters(llm, evaluation, self)  # ZL: necessary
 
+        self.coevo_paras = CoEvoParas(num_idea=[3, 3])
+        self.llm_inst = llm
+
     def _adjust_pop_size(self):
         # adjust population size
         if self._max_sample_nums >= 10000:
@@ -219,66 +225,17 @@ class CoEvo:
 
         # register to the population
         self._population.register_function(func)
-    def _sample_evaluate_register_n_samples(self, n):
-        pop_size = 0
-        tree_id = 0
-        population = []
-        while pop_size < n:
-            new_obs_tree = self._gen_obs_tree()
-            highest_level_combo = new_obs_tree.get_highest_level_combos()
-            non_empty_highest_level_combo = []
-            for every_combo in highest_level_combo:
-                if len(every_combo) >= 1:
-                    non_empty_highest_level_combo.append(every_combo)
-            non_empty_highest_level_combo.append(())
-            self._verbose_info(f"\ttotal {len(non_empty_highest_level_combo)} combos. Take {self.coevo_paras.num_sol_from_a_tree} solutions.")
-            combo_idx = np.random.permutation(len(non_empty_highest_level_combo))[:self.coevo_paras.num_sol_from_a_tree]
-            use_combos = [non_empty_highest_level_combo[idx] for idx in combo_idx]
-            all_indirect_impl_prompts = [CoEvoPrompt.get_init_impl_indirect_prompt(self.task_info_inst, self.coevo_paras, use_combo) for use_combo in use_combos]
-
-            indirect_sol_time= time.time()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                all_task = [executor.submit(self.llm_inst.get_response, impl_prompt) for impl_prompt in all_indirect_impl_prompts]
-                concurrent.futures.wait(all_task)
-            all_indirect_results = [task.result() for task in all_task]
-            indirect_sol_time = time.time() - indirect_sol_time
-            self._verbose_info(f"\t[Indirect Sol.]: {indirect_sol_time:.1f}s, ")
-
-            direct_sol_time = time.time()
-            all_impl_direct_prompts = [CoEvoPrompt.get_init_impl_direct_prompt(self.task_info_inst, self.coevo_paras, result) for result in all_indirect_results]
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                all_task = [executor.submit(self._get_sol_and_parse, impl_prompt) for impl_prompt in all_impl_direct_prompts]
-                concurrent.futures.wait(all_task)
-            all_results_direct = [task.result() for task in all_task]
-            direct_sol_time = time.time() - direct_sol_time
-            self._verbose_info(f"\t[Direct Sol.]: {direct_sol_time:.1f}s.\n")
-
-            tree_id += 1
-            for use_combo, indirect_res, direct_res in zip(use_combos, all_indirect_results, all_results_direct):
-                one_solution = {
-                    "sol": {
-                        self.coevo_paras.rep_list[0].rep_name: indirect_res,
-                        self.coevo_paras.rep_use.rep_name: direct_res
-                    },
-                    "obs": use_combo
-                }
-                population.append(one_solution)
-                pop_size += 1
-                if pop_size >= n:
-                    return population
 
     def _gen_obs_tree(self):
-        obs_node = ObservationNode(self.task_info_inst, self.coevo_paras, 0, ())
+        obs_node = ObservationNode(self._task_description_str, self.coevo_paras, 0, ())
         for layer_i in range(self.coevo_paras.num_obs_layers):
             highest_nodes = obs_node.get_highest_level_nodes()
-            obs_time = time.time()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 all_task = [executor.submit(every_high_node.get_observation, self.llm_inst) for every_high_node in
                             highest_nodes]
                 concurrent.futures.wait(all_task)
-                obs_time = time.time() - obs_time
-                self._verbose_info(f"\t[Obs. L{layer_i}]: {obs_time:.1f}s,")
         return obs_node
+
     def _continue_loop(self) -> bool:
         if self._max_generations is None and self._max_sample_nums is None:
             return True
@@ -357,28 +314,6 @@ class CoEvo:
         except:
             pass
 
-    def _iteratively_init_population(self):
-        """Let a thread repeat {sample -> evaluate -> register to population}
-        to initialize a population.
-        """
-        while self._population.generation == 0:
-            try:
-                # get a new func using i1
-                if self.code_type == 'Python':
-                    prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
-                elif self.code_type == 'Kernel':
-                    prompt = EoHPromptCPP.get_prompt_i1(self._task_description_str, self._function_to_evolve)
-
-                self._sample_evaluate_register_n_samples(prompt)
-                if self._tot_sample_nums > self._initial_sample_nums_max:
-                    print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
-                    break
-            except Exception:
-                if self._debug_mode:
-                    traceback.print_exc()
-                    exit()
-                continue
-
     def _multi_threaded_sampling(self, fn: callable, *args, **kwargs):
         """Execute `fn` using multithreading.
         In EoH, `fn` can be `self._iteratively_init_population` or `self._iteratively_use_eoh_operator`.
@@ -396,7 +331,30 @@ class CoEvo:
     def run(self):
         if not self._resume_mode:
             # do initialization
-            self._multi_threaded_sampling(self._iteratively_init_population)
+            pop_size = 0
+            while self._population.generation == 0:
+                new_obs_tree = self._gen_obs_tree()
+                highest_level_combo = new_obs_tree.get_highest_level_combos()
+                non_empty_highest_level_combo = []
+                for every_combo in highest_level_combo:
+                    if len(every_combo) >= 1:
+                        non_empty_highest_level_combo.append(every_combo)
+                non_empty_highest_level_combo.append(())
+                combo_idx = np.random.permutation(len(non_empty_highest_level_combo))[:self.coevo_paras.num_sol_from_a_tree]
+                use_combos = [non_empty_highest_level_combo[idx] for idx in combo_idx]
+
+                use_combos = use_combos[:self._pop_size-pop_size]
+
+                all_impl_direct_prompts = [CoEvoPrompt.get_init_impl_direct_prompt(self._task_description_str, self.coevo_paras, use_combo) for use_combo in use_combos]
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    all_task = [executor.submit(self._sample_evaluate_register, impl_prompt) for impl_prompt in all_impl_direct_prompts]
+                    concurrent.futures.wait(all_task)
+                all_results_direct = [task.result() for task in all_task]
+                pop_size += len(use_combos)
+                if self._tot_sample_nums > self._initial_sample_nums_max:
+                    print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
+                    break
             # terminate searching if
             if len(self._population) < self._selection_num:
                 print(f'The search is terminated since EoH unable to obtain {self._selection_num} feasible algorithms during initialization. '

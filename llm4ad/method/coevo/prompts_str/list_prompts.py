@@ -1,4 +1,4 @@
-from coevo.methods.coevo.coevoparas import CoEvoParas
+
 
 def list_pool(idea_pool):
     prompt_content = ""
@@ -12,7 +12,7 @@ def list_pool(idea_pool):
                 f'  Example: {each_inspiration["Example"]}\n\n'
         return prompt_content
 
-def list_single_sequential(evo_paras: CoEvoParas, previous_result_dict_list: list[dict] = None):
+def list_single_sequential(evo_paras, previous_result_dict_list: list[dict] = None):
     prompt_content = f""
     for prev_res_id, prev_res in enumerate(previous_result_dict_list):
         prompt_content += f'**Solution No.{prev_res_id + 1}**\n'
@@ -29,7 +29,7 @@ def list_single_sequential(evo_paras: CoEvoParas, previous_result_dict_list: lis
             prompt_content += f'{prev_res["fitness_string"]}\n\n'
     return prompt_content
 
-def list_parents(evo_paras: CoEvoParas, parents_list: list[dict]):
+def list_parents(evo_paras, parents_list: list[dict]):
     indivs_prompt = f""
     for indiv_idx, indiv in enumerate(parents_list):
         indiv_res = parents_list[indiv_idx]
@@ -47,7 +47,7 @@ def list_parents(evo_paras: CoEvoParas, parents_list: list[dict]):
             indivs_prompt += f'{indiv_res["fitness_string"]}\n\n'
     return indivs_prompt
 
-def list_offsprings(evo_paras: CoEvoParas, offspring_list: list[dict], parents_num: int):
+def list_offsprings(evo_paras, offspring_list: list[dict], parents_num: int):
     indivs_prompt = f""
 
     for indiv_idx, indiv in enumerate(offspring_list):

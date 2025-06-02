@@ -1,6 +1,5 @@
-from coevo.methods.coevo.coevoparas import CoEvoParas
 
-def init_sol_response_format(evo_paras: CoEvoParas):
+def init_sol_response_format(evo_paras):
     prompt_content = \
         f'Response Format (Replace ...): \n\n' \
         f'## Ideas\n' \
@@ -16,7 +15,7 @@ def init_sol_response_format(evo_paras: CoEvoParas):
             f'### {each_rep.rep_name}:\n...\n'
     return prompt_content
 
-def continue_sol_response_format(evo_paras: CoEvoParas):
+def continue_sol_response_format(evo_paras):
     prompt_content = \
         f'Response Format: (Replace ...)\n\n' \
         f'## Ideas\n' \

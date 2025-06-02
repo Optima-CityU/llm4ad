@@ -1,6 +1,4 @@
-from coevo.tasks.base import TaskInfo
-from coevo.methods.coevo.reps import BaseRep
-from coevo.methods.coevo.coevoparas import CoEvoParas
+
 def system_prompt_observation(task_type: str, mode: str, num_parents: int) -> str:
     if task_type == "Python":
         identity = "Python programmer"
@@ -24,7 +22,7 @@ def system_prompt_observation(task_type: str, mode: str, num_parents: int) -> st
     return sys_prompt_obs + prompt_content
 
 def get_observations_prompt(
-        task_info: TaskInfo, evo_paras: CoEvoParas, parents: list, mode: str, num_observations: int
+        task_info, evo_paras, parents: list, mode: str, num_observations: int
 ) -> tuple[dict[str, str], dict[str, str]]:
     sys_prompt = system_prompt_observation(task_info.program_lang, mode, len(parents))
 
