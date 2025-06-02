@@ -50,6 +50,7 @@ class CoEvo:
     def __init__(self,
                  llm: LLM,
                  evaluation: Evaluation,
+                 obs_llm: LLM = None,
                  profiler: ProfilerBase = None,
                  max_generations: Optional[int] = 10,
                  max_sample_nums: Optional[int] = 100,
@@ -160,7 +161,10 @@ class CoEvo:
             self._profiler.record_parameters(llm, evaluation, self)  # ZL: necessary
 
         self.coevo_paras = CoEvoParas()
-        self.llm_inst = llm
+        if obs_llm is None:
+            self.llm_inst = llm
+        else:
+            self.llm_inst = obs_llm
         self.init_tree_list = []
 
     def _adjust_pop_size(self):
