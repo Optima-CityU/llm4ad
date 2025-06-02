@@ -30,8 +30,8 @@ from typing import Optional, Literal
 
 from .population import Population
 from .profiler import EoHProfiler
-from .prompt import EoHPrompt
-from .prompt_cpp import EoHPromptCPP
+from .prompt import CoEvoPrompt
+from .prompt_cpp import CoEvoPromptCPP
 from .sampler import EoHSampler
 from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
@@ -159,8 +159,9 @@ class CoEvo:
         if profiler is not None:
             self._profiler.record_parameters(llm, evaluation, self)  # ZL: necessary
 
-        self.coevo_paras = CoEvoParas(num_idea=[3, 3])
+        self.coevo_paras = CoEvoParas()
         self.llm_inst = llm
+        self.init_tree_list = []
 
     def _adjust_pop_size(self):
         # adjust population size
@@ -250,12 +251,27 @@ class CoEvo:
     def _iteratively_use_eoh_operator(self):
         while self._continue_loop():
             try:
+                all_combos = []
+                for each_tree in self.init_tree_list:
+                    highest_level_combo = each_tree.get_highest_level_combos()
+                    non_empty_highest_level_combo = []
+                    for every_combo in highest_level_combo:
+                        if len(every_combo) >= 1:
+                            non_empty_highest_level_combo.append(every_combo)
+                    combo_idx = np.random.permutation(len(non_empty_highest_level_combo))
+                    use_combos = [non_empty_highest_level_combo[idx] for idx in combo_idx]
+                    all_combos.extend(use_combos)
+                combo_idx = np.random.permutation(len(all_combos))
+                all_combos = [all_combos[idx] for idx in combo_idx][:3]
+                modified_task_str = self._task_description_str + f'Here are some useful observations that may help:\n\n'
+                for each_combo in all_combos:
+                    modified_task_str += f' - {each_combo}\n'
                 # get a new func using e1
                 indivs = [self._population.selection() for _ in range(self._selection_num)]
                 if self.code_type=='Python':
-                    prompt = EoHPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
+                    prompt = CoEvoPrompt.get_prompt_e1(modified_task_str, indivs, self._function_to_evolve)
                 elif self.code_type=='Kernel':
-                    prompt = EoHPromptCPP.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
+                    prompt = CoEvoPromptCPP.get_prompt_e1(modified_task_str, indivs, self._function_to_evolve)
                 if self._debug_mode:
                     print(f'E1 Prompt: {prompt}')
                 self._sample_evaluate_register(prompt)
@@ -266,9 +282,9 @@ class CoEvo:
                 if self._use_e2_operator:
                     indivs = [self._population.selection() for _ in range(self._selection_num)]
                     if self.code_type == 'Python':
-                        prompt = EoHPrompt.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
+                        prompt = CoEvoPrompt.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
                     elif self.code_type == 'Kernel':
-                        prompt = EoHPromptCPP.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
+                        prompt = CoEvoPromptCPP.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
                     if self._debug_mode:
                         print(f'E2 Prompt: {prompt}')
                     self._sample_evaluate_register(prompt)
@@ -279,9 +295,9 @@ class CoEvo:
                 if self._use_m1_operator:
                     indiv = self._population.selection()
                     if self.code_type == 'Python':
-                        prompt = EoHPrompt.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
+                        prompt = CoEvoPrompt.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
                     elif self.code_type == 'Kernel':
-                        prompt = EoHPromptCPP.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
+                        prompt = CoEvoPromptCPP.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
                     if self._debug_mode:
                         print(f'M1 Prompt: {prompt}')
                     self._sample_evaluate_register(prompt)
@@ -292,9 +308,9 @@ class CoEvo:
                 if self._use_m2_operator:
                     indiv = self._population.selection()
                     if self.code_type == 'Python':
-                        prompt = EoHPrompt.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
+                        prompt = CoEvoPrompt.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
                     elif self.code_type == 'Kernel':
-                        prompt = EoHPromptCPP.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
+                        prompt = CoEvoPromptCPP.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
                     if self._debug_mode:
                         print(f'M2 Prompt: {prompt}')
                     self._sample_evaluate_register(prompt)
@@ -334,6 +350,7 @@ class CoEvo:
             pop_size = 0
             while self._population.generation == 0:
                 new_obs_tree = self._gen_obs_tree()
+                self.init_tree_list.append(new_obs_tree)
                 highest_level_combo = new_obs_tree.get_highest_level_combos()
                 non_empty_highest_level_combo = []
                 for every_combo in highest_level_combo:

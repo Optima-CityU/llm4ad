@@ -6,7 +6,7 @@ from typing import List, Dict
 from ...base import *
 
 
-class EoHPromptCPP:
+class CoEvoPromptCPP:
     @classmethod
     def create_instruct_prompt(cls, prompt: str) -> List[Dict]:
         content = [

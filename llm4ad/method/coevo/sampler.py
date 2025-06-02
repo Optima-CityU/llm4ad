@@ -4,7 +4,7 @@ import re
 from typing import Tuple, List, Dict
 from typing import Optional, Literal
 
-from .prompt import EoHPrompt
+from .prompt import CoEvoPrompt
 from ...base import LLM, SampleTrimmer, Function, Program
 from ...base.opt_kernels.sample import CPPSampleTrimmer
 
