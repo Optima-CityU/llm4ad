@@ -21,4 +21,4 @@ llm4ad.egg-info/requires.txt
 llm4ad.egg-info/PKG-INFO
 llm4ad.egg-info/dependency_links.txt
 **/reevo/
-**/fake_reevo.py/
+**/fake_reevo.py
