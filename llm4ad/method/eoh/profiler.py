@@ -140,12 +140,6 @@ class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
         if self._log_dir:
             self._writer.close()
 
-        filename = 'end.json'
-        path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
-
-        with open(path, 'w') as json_file:
-            json.dump([], json_file, indent=4)
-
 
 class EoHWandbProfiler(WandBProfiler, EoHProfiler):
 
@@ -187,8 +181,3 @@ class EoHWandbProfiler(WandBProfiler, EoHProfiler):
 
     def finish(self):
         wandb.finish()
-        filename = 'end.json'
-        path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
-
-        with open(path, 'w') as json_file:
-            json.dump([], json_file, indent=4)

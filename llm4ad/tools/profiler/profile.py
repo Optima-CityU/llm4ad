@@ -72,7 +72,7 @@ class ProfilerBase:
         if create_random_path:
             self._log_dir = os.path.join(
                 log_dir,
-                self._result_folder + '_'
+                self._result_folder
             )
         else:
             self._log_dir = log_dir
@@ -87,7 +87,6 @@ class ProfilerBase:
     def register_function(self, function: Function, *, resume_mode=False):
         """Record an obtained function.
         """
-
         if self._num_objs < 2:
             try:
                 self._register_function_lock.acquire()
