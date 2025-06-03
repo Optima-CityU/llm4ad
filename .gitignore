@@ -11,7 +11,7 @@
 **/samples*
 **/sample2pkl.py
 GUI/outputs
-**/*wandb*
+**/wandb
 **/test
 /.gitattributes
 ysy_main.py
