@@ -54,14 +54,8 @@ stop_thread = False
 have_stop_thread = False
 
 method_para_entry_list = []
-batch_para_entry_list = []
 method_para_value_type_list = []
 method_para_value_name_list = []
-batch_method_para = {} # 存了所有已选algo的参数
-batch_problem_para = {} # 存了所有已选problem的参数
-
-batch_last_para_type = 0
-batch_last_para_name = None
 
 problem_listbox = None
 default_problem_index = None
@@ -69,14 +63,22 @@ objectives_var = None
 problem_para_entry_list = []
 problem_para_value_type_list = []
 problem_para_value_name_list = []
-problem_listbox2 = None # 左侧所有的task
 objectives_var2 = None
-algo_listbox2 = None # 左侧所有的algo
-selected_algorithms_list = [] # 是个list，存了所有已经选了的algo的name
 selected_tasks_list = [] # 是个list，存了所有已经选了的task的name
-real_algo_listbox2 = None # 所有选择了的algo
-real_prob_listbox2 = None # 所有选择了的prob
-selected_problems_list = []
+
+batch_last_para_type = 0 # todo
+batch_last_para_name = None # todo
+batch_para_entry_list = [] # todo
+
+algo_listbox2 = None # todo 左侧所有的algo
+real_algo_listbox2 = None # todo 所有选择了的algo
+selected_algorithms_list = [] # todo 是个list，存了所有已经选了的algo的name
+batch_method_para = {} # todo 存了所有已选algo的参数
+
+problem_listbox2 = None # todo 左侧所有的task
+real_prob_listbox2 = None # todo 所有选择了的prob
+selected_problems_list = [] # todo
+batch_problem_para = {} # todo 存了所有已选problem的参数
 
 llm_para_entry_list = []
 llm_para_entry_list2 = []
@@ -691,7 +693,6 @@ def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
 
     if batch_except_error():
         tk.messagebox.showerror("Error", "Except Error. Please check the terminal.")
-
 
 def batch_get_latest_result(index, log_dir):
     generation = []
