@@ -545,19 +545,7 @@ def batch_run():
 
         init_table(list(method_para),list(problem_para))
 
-        # todo 1
-        #   功能
-        #       stop按钮对应的方法
-        #   存在的bug/异常处理
-        #       如果运行中，进程出现bug?
-        #       最重要的，不要有内存泄漏，以及停止了之后，直接把进程/线程kill掉，不要继续使用token了
-        #       好像直接中止这个程序不会中止这个进程，这个进程还会继续。这个问题一定要解决，同时不知道single(非batch)的会不会有这个问题
-        #       如果卡死，则需要加队列(queue)，具体看deepseek
-        #       如果加入了algo/task，然后删掉加入的，使得algo/task为空，也是能跑的。
-        #       点击run按钮，会保存最后一次修改的参数，有没有什么情况，会导致报错（比如从来没点击过添加的algo/task,加入进来直接run了)，会不会报错？等等
-        #       每次重新跑,会把之前跑的覆盖了吗.各种变量,注意这次跑不要用上次跑的变量
-        #   功能
-        #       结果显示，表格最好能点开看具体的运行配置和结果（log_files)
+        # todo
 
         with batch_lock:
             batch_stop_flag = False  # 重置停止标志
@@ -689,7 +677,7 @@ def batch_check_para():
 def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
     index = 1
 
-    while (not check_finish(log_dir, index, max_sample_nums)):
+    while (not check_finish(log_dir, index, max_sample_nums)) and (not batch_except_error()):
         time.sleep(0.5)
         with batch_lock:
             if batch_stop_flag:
@@ -700,6 +688,10 @@ def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
             update_cell_value(row_index, col_index, new_value)
 
             index += 1
+
+    if batch_except_error():
+        tk.messagebox.showerror("Error", "Except Error. Please check the terminal.")
+
 
 def batch_get_latest_result(index, log_dir):
     generation = []
@@ -742,6 +734,15 @@ def update_cell_value(row_index, col_index, new_value):
     current_values[col_index] = new_value
     tree.item(row_id, values=current_values)
 
+def batch_except_error():
+    global batch_current_process
+    try:
+        if batch_current_process.exitcode == 1:
+            return True
+        else:
+            return False
+    except:
+        return False
 
 ######################################################################
 
@@ -1419,8 +1420,6 @@ if __name__ == '__main__':
     container_frame_3_2.grid_columnconfigure(0, weight=10)
 
     ##########################################################
-
-    # todo 1 做到这里了（为按钮绑定函数），上面的组件都不用管
 
     # plot_button2 = ttk.Button(left_frame2, text="Run", command=on_plot_button_click, width=12,
     #                          bootstyle="primary-outline", state=tk.NORMAL)
