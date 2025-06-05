@@ -1,0 +1,141 @@
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5   527556884  1343124817         300         295
+processing times :
+ 85 64 31 44 66
+  7 14 69 18 68
+  1 74 70 90 60
+ 45 76 13 98 54
+ 80 15 45 91 10
+machines :
+  4  1  3  5  2
+  1  4  2  5  3
+  4  1  2  5  3
+  2  4  5  3  1
+  1  4  2  5  3
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5  1046824493  1973406531         262         255
+processing times :
+ 83 38 32 81 19
+ 22 52  6 64 90
+ 83 35 15  8  1
+ 33 71 87 21 40
+ 55 42 55 86 15
+machines :
+  4  2  5  3  1
+  2  5  1  3  4
+  2  5  3  1  4
+  5  1  2  4  3
+  3  5  4  1  2
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5  1165033492    86711717         328         321
+processing times :
+ 98 65  9 80  3
+ 45 51 69 79 51
+ 53 75 91 65 37
+ 95 58 76 49 39
+ 68 29 93 54 27
+machines :
+  4  3  5  1  2
+  5  3  2  1  4
+  4  3  5  1  2
+  2  3  5  4  1
+  4  2  5  1  3
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5   476292817    24463110         310         306
+processing times :
+ 64 66 45 35 31
+ 66 78 36 71 44
+ 81  5 53 91 75
+ 25 77 79 38 60
+ 83 81 37 12 93
+machines :
+  3  1  2  5  4
+  4  1  3  5  2
+  3  5  2  4  1
+  1  2  4  3  5
+  2  3  4  1  5
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5  1181363416   606981348         329         321
+processing times :
+ 78 73 58 60 52
+ 33 52 92 48 46
+ 31 63 86 59 80
+ 85  2 56 92  5
+ 91 49 75 78 28
+machines :
+  3  5  1  4  2
+  1  4  5  2  3
+  5  4  1  2  3
+  2  5  4  1  3
+  3  4  2  5  1
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5   897739730   513119113         312         307
+processing times :
+  5 41 93 60 86
+ 81  6 63 96  4
+ 50 62 46 17 81
+ 55 85 61 78 26
+ 98 37 34 56 82
+machines :
+  5  2  1  3  4
+  3  4  2  1  5
+  5  2  3  1  4
+  2  4  1  5  3
+  5  1  4  2  3
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5   577107303  2046387124         305         298
+processing times :
+ 65 16 62 65 51
+ 49 58 85 71 31
+ 63 62 78 47  2
+ 97 95 48 14 42
+ 76 80 89  9  7
+machines :
+  4  5  3  1  2
+  3  5  4  1  2
+  3  5  2  1  4
+  2  5  3  1  4
+  3  4  1  5  2
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5  1714191910  1928475945         300         292
+processing times :
+ 89 30 46 66 29
+ 82 52 64 38 56
+ 70 92 79 18 29
+ 14 59 52 69 80
+ 95 54 37  4 22
+machines :
+  5  3  1  2  4
+  4  1  2  3  5
+  2  5  3  1  4
+  5  4  1  2  3
+  1  3  5  4  2
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5  1813128617  2091141708         353         349
+processing times :
+ 22 90 83 38 35
+ 68 93 23 84 73
+ 38 34 77 94 41
+ 96 55 72 59 67
+ 49 16 90 89 93
+machines :
+  1  5  3  4  2
+  5  2  4  3  1
+  2  3  1  4  5
+  1  3  2  5  4
+  4  1  5  3  2
+number of jobs, number of machines, time seed, machine seed, upper bound, lower bound :
+           5           5   808919936   183753764         326         321
+processing times :
+ 90 17 87 36 59
+ 99 93 32 14 56
+ 97 45 59 44 40
+ 49 81 30 67 50
+ 74 53 25 76 91
+machines :
+  1  4  3  2  5
+  4  3  5  1  2
+  2  3  1  4  5
+  2  4  5  1  3
+  2  5  3  4  1
+
