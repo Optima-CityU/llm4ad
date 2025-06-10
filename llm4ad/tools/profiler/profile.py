@@ -20,9 +20,11 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
-from typing import Literal, Optional
+from typing import Literal, Optional, List, Tuple
 
+import numpy as np
 import pytz
 import json
 import logging
@@ -84,7 +86,7 @@ class ProfilerBase:
         self._parameters = [llm, prob, method]
         self._create_log_path()
 
-    def register_function(self, function: Function, *, resume_mode=False):
+    def register_function(self, function: Function, program: str = '', *, resume_mode=False):
         """Record an obtained function.
         """
         if self._num_objs < 2:
@@ -92,7 +94,7 @@ class ProfilerBase:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
                 self._record_and_print_verbose(function, resume_mode=resume_mode)
-                self._write_json(function)
+                self._write_json(function, program)
             finally:
                 self._register_function_lock.release()
         else:
@@ -100,7 +102,7 @@ class ProfilerBase:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
                 self._record_and_print_verbose(function, resume_mode=resume_mode)
-                self._write_json(function)
+                self._write_json(function, program)
             finally:
                 self._register_function_lock.release()
 
@@ -113,7 +115,8 @@ class ProfilerBase:
     def resume(self, *args, **kwargs):
         pass
 
-    def _write_json(self, function: Function, *, record_type: Literal['history', 'best'] = 'history', record_sep=200):
+    def _write_json(self, function: Function, program: str, *, record_type: Literal['history', 'best'] = 'history',
+                    record_sep=200):
         """Write function data to a JSON file.
         Args:
             function   : The function object containing score and string representation.
@@ -127,7 +130,8 @@ class ProfilerBase:
         content = {
             'sample_order': sample_order,
             'function': str(function),
-            'score': function.score
+            'score': function.score,
+            'program': program,
         }
 
         if record_type == 'history':
@@ -150,7 +154,7 @@ class ProfilerBase:
         with open(path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
 
-    def _record_and_print_verbose(self, function, *, resume_mode=False):
+    def _record_and_print_verbose(self, function, program='', *, resume_mode=False):
         function_str = str(function).strip('\n')
         sample_time = function.sample_time
         evaluate_time = function.evaluate_time
@@ -162,7 +166,7 @@ class ProfilerBase:
                 self._cur_best_function = function
                 self._cur_best_program_score = score
                 self._cur_best_program_sample_order = self._num_samples
-                self._write_json(function, record_type='best')
+                self._write_json(function, record_type='best', program=program)
         else:
             if score is not None:
                 for i in range(self._num_objs):
@@ -170,7 +174,7 @@ class ProfilerBase:
                         self._cur_best_function[i] = function
                         self._cur_best_program_score[i] = score[i]
                         self._cur_best_program_sample_order[i] = self._num_samples
-                        self._write_json(function, record_type='best')
+                        self._write_json(function, record_type='best', program=program)
 
         if not resume_mode:
             # log attributes of the function
@@ -264,3 +268,48 @@ class ProfilerBase:
                 self._logger_txt.info(f'  - {attr}: {value}')
 
         self._logger_txt.info('=====================================================================')
+
+    @classmethod
+    def load_logfile(cls, logdir, valid_only=False) -> Tuple[List[str], List[float]]:
+        file_dir = os.path.join(logdir, 'samples')
+        # get all file directories
+        all_files = os.listdir(file_dir)
+        # filer `samples_*.json` files and ignore `samples_best.json`
+        sample_files = [f for f in all_files if f.startswith('samples_') and f != 'samples_best.json']
+
+        def extract_number(filename):
+            # match the first number of the filename
+            match = re.search(r'samples_(\d+)~', filename)
+            if match:
+                return int(match.group(1))
+            return 0
+
+        sorted_files = sorted(sample_files, key=extract_number)
+
+        all_func = []
+        all_score = []
+        all_algorithm = []
+
+        for file in sorted_files:
+            file_path = os.path.join(file_dir, file)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                try:
+                    samples = json.load(f)
+                except Exception as e:
+                    print(e)
+                    print(file_path)
+            for sample in samples:
+                func = sample['function']
+                acc = sample['score'] if sample['score'] else float('-inf')
+                if valid_only:
+                    if acc is None or np.isinf(acc):
+                        continue
+                    all_func.append(func)
+                    all_score.append(acc)
+                else:
+                    all_func.append(func)
+                    all_score.append(acc)
+                if 'algorithm' in sample:
+                    all_algorithm.append(sample['algorithm'])
+
+        return all_func, all_score

@@ -62,7 +62,7 @@ class TensorboardProfiler(ProfilerBase):
     def get_logger(self):
         return self._writer
 
-    def register_function(self, function: Function, *, resume_mode=False):
+    def register_function(self, function: Function, program='',*, resume_mode=False):
         """Record an obtained function. This is a synchronized function.
         """
         try:
@@ -70,7 +70,7 @@ class TensorboardProfiler(ProfilerBase):
             self._num_samples += 1
             self._record_and_print_verbose(function, resume_mode=resume_mode)
             self._write_tensorboard()
-            self._write_json(function)
+            self._write_json(function, program=program)
         finally:
             self._register_function_lock.release()
 
