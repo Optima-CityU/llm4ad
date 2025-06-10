@@ -88,7 +88,7 @@ class NSGA2Profiler(ProfilerBase):
             if self._pop_lock.locked():
                 self._pop_lock.release()
 
-    def _write_json(self, function: Function, *, record_type='history', record_sep=200):
+    def _write_json(self, function: Function, program='', *, record_type='history', record_sep=200):
         """
             Write function data to a JSON file.
 
@@ -113,7 +113,8 @@ class NSGA2Profiler(ProfilerBase):
             'sample_order': sample_order,
             'algorithm': function.algorithm,  # Added when recording
             'function': str(function),
-            'score': func_score
+            'score': func_score,
+            'program': program,
         }
 
         if record_type == 'history':

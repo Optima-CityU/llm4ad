@@ -121,7 +121,7 @@ class HillClimb:
         if self._profiler:
             self._function_to_evolve.score = score
             self._function_to_evolve.evaluate_time = eval_time
-            self._profiler.register_function(self._function_to_evolve)
+            self._profiler.register_function(self._function_to_evolve, program=str(self._template_program))
 
     def _get_prompt(self) -> str:
         template = TextFunctionProgramConverter.function_to_program(self._best_function_found, self._template_program)
@@ -132,51 +132,108 @@ class HillClimb:
         func_to_be_complete.body = ''
         return '\n'.join([str(template), str(func_to_be_complete)])
 
+    # def _sample_evaluate_register(self):
+    #     while (self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums):
+    #         try:
+    #             # do sample
+    #             prompt_content = self._get_prompt()
+    #             draw_sample_start = time.time()
+    #             sampled_funcs = self._sampler.draw_samples([prompt_content])
+    #             draw_sample_times = time.time() - draw_sample_start
+    #             avg_time_for_each_sample = draw_sample_times / len(sampled_funcs)
+    #
+    #             # convert to program instance
+    #             programs_to_be_eval = []
+    #             for func in sampled_funcs:
+    #                 program = SampleTrimmer.sample_to_program(func, self._template_program)
+    #                 # if sample to program success
+    #                 if program is not None:
+    #                     programs_to_be_eval.append(program)
+    #
+    #             # submit tasks to the thread pool and evaluate
+    #             futures = []
+    #             for program in programs_to_be_eval:
+    #                 future = self._evaluation_executor.submit(self._evaluator.evaluate_program_record_time, program)
+    #                 futures.append(future)
+    #             # get evaluate scores and evaluate times
+    #             scores_times = [f.result() for f in futures]
+    #             scores, times = [i[0] for i in scores_times], [i[1] for i in scores_times]
+    #
+    #             # update register to program database
+    #             for program, score, eval_time in zip(programs_to_be_eval, scores, times):
+    #                 # convert to Function instance
+    #                 function = TextFunctionProgramConverter.program_to_function(program)
+    #                 # check if the function has converted to Function instance successfully
+    #                 if function is None:
+    #                     continue
+    #                 function.score = score
+    #                 function.evaluate_time = eval_time
+    #                 function.sample_time = avg_time_for_each_sample
+    #                 # update best function found
+    #                 if score is not None and score > self._best_function_found.score:
+    #                     self._best_function_found = function
+    #                 # register to profiler
+    #                 if self._profiler:
+    #                     self._profiler.register_function(function)
+    #                 # update
+    #                 self._tot_sample_nums += 1
+    #         except KeyboardInterrupt:
+    #             break
+    #         except Exception as e:
+    #             if self._debug_mode:
+    #                 traceback.print_exc()
+    #                 exit()
+    #             continue
+    #
+    #     # shutdown evaluation_executor
+    #     try:
+    #         self._evaluation_executor.shutdown(cancel_futures=True)
+    #     except:
+    #         pass
+
     def _sample_evaluate_register(self):
         while (self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums):
             try:
                 # do sample
                 prompt_content = self._get_prompt()
                 draw_sample_start = time.time()
-                sampled_funcs = self._sampler.draw_samples([prompt_content])
-                draw_sample_times = time.time() - draw_sample_start
-                avg_time_for_each_sample = draw_sample_times / len(sampled_funcs)
+                sampled_func = self._sampler.draw_sample(prompt_content)
+                draw_sample_time = time.time() - draw_sample_start
 
-                # convert to program instance
-                programs_to_be_eval = []
-                for func in sampled_funcs:
-                    program = SampleTrimmer.sample_to_program(func, self._template_program)
-                    # if sample to program success
-                    if program is not None:
-                        programs_to_be_eval.append(program)
+                # convert samples to program instances
+                program_to_be_eval = SampleTrimmer.sample_to_program(sampled_func, self._template_program)
+                if program_to_be_eval is None:
+                    continue
 
                 # submit tasks to the thread pool and evaluate
-                futures = []
-                for program in programs_to_be_eval:
-                    future = self._evaluation_executor.submit(self._evaluator.evaluate_program_record_time, program)
-                    futures.append(future)
-                # get evaluate scores and evaluate times
-                scores_times = [f.result() for f in futures]
-                scores, times = [i[0] for i in scores_times], [i[1] for i in scores_times]
+                future = self._evaluation_executor.submit(
+                    self._evaluator.evaluate_program_record_time, program_to_be_eval
+                )
 
-                # update register to program database
-                for program, score, eval_time in zip(programs_to_be_eval, scores, times):
-                    # convert to Function instance
-                    function = TextFunctionProgramConverter.program_to_function(program)
-                    # check if the function has converted to Function instance successfully
-                    if function is None:
-                        continue
-                    function.score = score
-                    function.evaluate_time = eval_time
-                    function.sample_time = avg_time_for_each_sample
-                    # update best function found
-                    if score is not None and score > self._best_function_found.score:
-                        self._best_function_found = function
-                    # register to profiler
-                    if self._profiler:
-                        self._profiler.register_function(function)
-                    # update
-                    self._tot_sample_nums += 1
+                # get evaluate scores and evaluate times
+                score, eval_time = future.result()
+
+                # convert to Function instance
+                function = TextFunctionProgramConverter.program_to_function(program_to_be_eval)
+
+                # check if the function has converted to Function instance successfully
+                if function is None:
+                    continue
+                function.score = score
+                function.evaluate_time = eval_time
+                function.sample_time = draw_sample_time
+
+                # update best function found
+                if score is not None and score > self._best_function_found.score:
+                    self._best_function_found = function
+
+                # register to profiler
+                if self._profiler:
+                    self._profiler.register_function(function, program=str(program_to_be_eval))
+
+                # update
+                self._tot_sample_nums += 1
+
             except KeyboardInterrupt:
                 break
             except Exception as e:

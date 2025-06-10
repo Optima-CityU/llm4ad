@@ -185,7 +185,7 @@ class RandSample:
             if self._profiler:
                 self._function_to_evolve.score = score
                 self._function_to_evolve.evaluate_time = eval_time
-                self._profiler.register_function(self._function_to_evolve)
+                self._profiler.register_function(self._function_to_evolve, program=str(self._template_program))
 
         # start sampling using multiple threads
         for t in self._sampler_threads:

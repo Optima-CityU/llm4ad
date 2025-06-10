@@ -192,7 +192,7 @@ class EoH:
         func.algorithm = thought
         func.sample_time = sample_time
         if self._profiler is not None:
-            self._profiler.register_function(func)
+            self._profiler.register_function(func, program=str(program))
             if isinstance(self._profiler, EoHProfiler):
                 self._profiler.register_population(self._population)
             self._tot_sample_nums += 1
