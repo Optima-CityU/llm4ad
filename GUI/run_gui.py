@@ -41,6 +41,7 @@ import threading
 import ttkbootstrap as ttk
 import subprocess
 import yaml
+import platform
 
 ##########################################################
 
@@ -104,6 +105,8 @@ batch_current_process = None
 batch_current_thread = None
 batch_stop_flag = False  # 停止标志
 batch_lock = threading.Lock()  # 防止竞态条件
+
+folder_map = {}
 
 ##########################################################
 
@@ -169,6 +172,20 @@ def open_folder():
         elif os.name == 'posix':  # Unix-like
             subprocess.run(['open', log_dir])
 
+def batch_open_folder(path):
+    """跨平台打开文件夹"""
+    try:
+        if path == '':
+            return
+        else:
+            if platform.system() == "Windows":
+                os.startfile(path)
+            elif platform.system() == "Darwin":  # macOS
+                os.system(f'open "{path}"')
+            else:  # Linux
+                os.system(f'xdg-open "{path}"')
+    except Exception as e:
+        print(f"无法打开文件夹: {e}")
 
 ##########################################################
 
@@ -570,6 +587,11 @@ def batch_run():
                     "%Y%m%d_%H%M%S") + f'_{temp_str1}' + f'_{temp_str2}'
                 profiler_para['log_dir'] = log_folder
 
+
+                row_str = f'I00{row_index+1}'
+                col_str = f'#{col_index+1}'
+                folder_map[(row_str, col_str)] = profiler_para['log_dir']
+
                 #########
                 with batch_lock:
                     batch_current_process = multiprocessing.Process(target=main_gui, args=(llm_para, method_value, problem_value, profiler_para))
@@ -603,6 +625,7 @@ def batch_run():
 
 def init_table(methods_name, problems_name):
     global tree
+    global folder_map
 
     for widget in right_frame2.winfo_children():
         widget.destroy()
@@ -620,8 +643,47 @@ def init_table(methods_name, problems_name):
     for i, row_header in enumerate(methods_name):
         # 使用行表头作为第一列的值，其余列为空
         values = [""] * len(problems_name)
-        tree.insert("", i, text=row_header, values=values)
+        item_id = tree.insert("", i, text=row_header, values=values)
+
+        for col_idx, problem in enumerate(problems_name):
+            # 这里设置你的实际文件夹路径逻辑
+            # folder_path = f"/path/to/{row_header}/{problem}"
+            folder_path = ''
+            # 注意：列ID格式为"#1", "#2"等
+            folder_map[(item_id, f"#{col_idx + 1}")] = folder_path
+
+            # print(item_id)
+            # print(f"#{col_idx + 1}")
+            # print((item_id, f"#{col_idx + 1}"))
+
+    tree.bind("<ButtonRelease-1>", tree_on_cell_click)
+
     tree.pack(padx=10, pady=10)
+
+def tree_on_cell_click(event):
+    global tree
+    global folder_map
+    """处理单元格点击事件"""
+    # 获取点击区域
+    region = tree.identify_region(event.x, event.y)
+
+        # 只处理数据单元格（排除表头、行头和空白区域）
+    if region != "cell":
+        return
+
+        # 获取行ID和列ID
+    row_id = tree.identify_row(event.y)
+    column_id = tree.identify_column(event.x)
+
+    # 排除行头列（第一列）
+    if column_id == "#0":
+        return
+
+    # 获取对应的文件夹路径
+    folder_path = folder_map.get((row_id, column_id))
+
+    if folder_path:
+        batch_open_folder(folder_path)
 
 def batch_return_para():
     global batch_method_para
