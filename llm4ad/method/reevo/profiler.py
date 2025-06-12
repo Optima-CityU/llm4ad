@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-from abc import ABC, abstractmethod
 from threading import Lock
 from typing import List, Dict, Optional
 
@@ -16,8 +15,7 @@ from ...base import Function
 from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
 
 
-class EoHProfiler(ProfilerBase):
-
+class ReEvoProfiler(ProfilerBase):
     def __init__(self,
                  log_dir: Optional[str] = None,
                  *,
@@ -25,7 +23,7 @@ class EoHProfiler(ProfilerBase):
                  log_style='complex',
                  create_random_path=True,
                  **kwargs):
-        """EoH Profiler
+        """ReEvo Profiler
         Args:
             log_dir            : the directory of current run
             initial_num_samples: the sample order start with `initial_num_samples`.
@@ -107,7 +105,7 @@ class EoHProfiler(ProfilerBase):
             json.dump(data, json_file, indent=4)
 
 
-class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
+class ReEvoTensorboardProfiler(TensorboardProfiler, ReEvoProfiler):
 
     def __init__(self,
                  log_dir: str | None = None,
@@ -116,14 +114,14 @@ class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
                  log_style='complex',
                  create_random_path=True,
                  **kwargs):
-        """EoH Profiler for Tensorboard.
+        """Profiler for Tensorboard.
         Args:
             log_dir            : the directory of current run
-            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
+            initial_num_samples: the sample order start with `initial_num_samples`.
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
             **kwargs           : kwargs for wandb
         """
-        EoHProfiler.__init__(
+        ReEvoProfiler.__init__(
             self, log_dir=log_dir,
             create_random_path=create_random_path,
             **kwargs
@@ -141,8 +139,15 @@ class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
         if self._log_dir:
             self._writer.close()
 
+        filename = 'end.json'
+        path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
 
-class EoHWandbProfiler(WandBProfiler, EoHProfiler):
+        with open(path, 'w') as json_file:
+            json.dump([], json_file, indent=4)
+
+
+class ReEvoWandbProfiler(WandBProfiler, ReEvoProfiler):
+    _cur_gen = 0
 
     def __init__(self,
                  wandb_project_name: str,
@@ -152,7 +157,7 @@ class EoHWandbProfiler(WandBProfiler, EoHProfiler):
                  log_style='complex',
                  create_random_path=True,
                  **kwargs):
-        """EoH Profiler for Wandb.
+        """Profiler for Wandb.
         Args:
             wandb_project_name : the name of the wandb project
             log_dir            : the directory of current run
@@ -160,7 +165,7 @@ class EoHWandbProfiler(WandBProfiler, EoHProfiler):
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
             **kwargs           : kwargs for wandb
         """
-        EoHProfiler.__init__(
+        ReEvoProfiler.__init__(
             self,
             log_dir=log_dir,
             create_random_path=create_random_path,
@@ -182,3 +187,8 @@ class EoHWandbProfiler(WandBProfiler, EoHProfiler):
 
     def finish(self):
         wandb.finish()
+        filename = 'end.json'
+        path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
+
+        with open(path, 'w') as json_file:
+            json.dump([], json_file, indent=4)

@@ -8,14 +8,12 @@
 **/*.log
 **/*.out
 **/logs
-**/.idea
 **/samples*
 **/sample2pkl.py
 GUI/outputs
-**/*wandb*
+**/wandb
 **/test
 /.gitattributes
-ysy_main.py
 ysy_main.py
 llm4ad.egg-info/top_level.txt
 llm4ad.egg-info/SOURCES.txt
@@ -23,4 +21,4 @@ llm4ad.egg-info/requires.txt
 llm4ad.egg-info/PKG-INFO
 llm4ad.egg-info/dependency_links.txt
 **/reevo/
-**/fake_reevo.py/
+**/fake_reevo.py

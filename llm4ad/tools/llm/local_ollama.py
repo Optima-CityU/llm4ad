@@ -16,26 +16,33 @@
 # For inquiries regarding commercial use or licensing, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
-from __future__ import annotations
 
-import openai
+"""
+- Please install following Python packages:
+    1. ollama
+    2. langchain_ollama
+    3. langchain
+"""
+from langchain_ollama import OllamaLLM
 from typing import Any
+from ...base import LLM
 
-from llm4ad.base import LLM
 
-
-class OpenAIAPI(LLM):
-    def __init__(self, base_url: str, api_key: str, model: str, timeout=60, **kwargs):
+class LocalOllamaLLM(LLM):
+    def __init__(self, model_name: str, **ollama_llm_init_params):
+        """Deploy Ollama model on local devices.
+        Args:
+            model_name            : name of local Ollama model checkpoint.
+            ollama_llm_init_params: initialization params for `langchain_ollama.OllamaLLM`.
+        """
         super().__init__()
-        self._model = model
-        self._client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=timeout, **kwargs)
+        self.model = OllamaLLM(model=model_name, **ollama_llm_init_params)
 
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
-        if isinstance(prompt, str):
-            prompt = [{'role': 'user', 'content': prompt.strip()}]
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=prompt,
-            stream=False,
-        )
-        return response.choices[0].message.content
+        response = self.model.invoke(prompt)
+        return response
+
+
+if __name__ == '__main__':
+    model = LocalOllamaLLM('qwen3:14b')
+    print(model.draw_sample('hello'))
