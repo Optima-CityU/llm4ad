@@ -263,3 +263,5 @@ class HillClimb:
 
         if self._profiler is not None:
             self._profiler.finish()
+
+        self._sampler.llm.close()
