@@ -1,2 +1,2 @@
-from .evaluation import PURSAvaluationCB
+from .evaluation import PURSAEvaluationCB
 from .template import template_program
