@@ -35,14 +35,10 @@ Copyright notice: (c) 2023 Danial Yazdani
 
 import os
 
-import math
-import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-import matplotlib.pyplot as plt
-from scipy.optimize import differential_evolution
 
-from main import *
+from shade import *
 
 
 # Define the GNBG class
@@ -121,43 +117,16 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 folder_path = os.path.join(current_dir)
 
 
-def run_single(problem_index, run_index):
-    result_path = f'results/problem_{problem_index}/'
-    if os.path.exists(os.path.join(result_path, f"Problem_{problem_index}_Best_Params_Run_{run_index}.txt")):
-        with open(os.path.join(result_path, f"Problem_{problem_index}_Best_Params_Run_{run_index}.txt"), 'r') as f:
-            best_params = f.read()
-            if best_params != "" and best_params != '[]':
-                print(f"Problem {problem_index}, Run {run_index} already completed. Skipping.")
+def run_single(problem_index, run_index, random_seed):
 
-                # 为每个run创建单独的文件
-                if not os.path.exists(os.path.join(result_path, f"Problem_{problem_index}_Run_{run_index}.xlsx")):
-                    individual_path = os.path.join(result_path, f"Problem_{problem_index}_Run_{run_index}.xlsx")
-
-                    with open(os.path.join(result_path, f"Problem_{problem_index}_Best_Value_Run_{run_index}.txt"),
-                              'r') as f:
-                        best_value = float(f.read())
-
-                    df = pd.DataFrame({
-                        'Run': [run_index],
-                        'BestFoundResult': [best_value],
-                        'AcceptanceReachPoint': [None]
-                    })
-
-                    df.to_excel(individual_path, index=False)
-                return
-
-    print(f"Running Problem {problem_index}, Run {run_index}")
-    # Define the path to the folder where you want to read/write files
-    os.makedirs(result_path, exist_ok=True)
-
-    np.random.seed()  # This uses a system-based source to seed the random number generator
+    np.random.seed(random_seed)  # This uses a system-based source to seed the random number generator
 
     # Initialization
     ProblemIndex = problem_index  # Choose a problem instance range from f1 to f24
 
     # Preparation and loading of the GNBG parameters based on the chosen problem instance
     if 1 <= ProblemIndex <= 24:
-        filename = os.path.join('../LLMdesignedEA-comp-main/codes/GNBG-Python', f'f{ProblemIndex}.mat')
+        filename = os.path.join('GNBG', f'f{ProblemIndex}.mat')
         GNBG_tmp = loadmat(os.path.join(folder_path, filename))['GNBG']
         MaxEvals = np.array([item[0] for item in GNBG_tmp['MaxEvals'].flatten()])[0, 0]
         AcceptanceThreshold = np.array([item[0] for item in GNBG_tmp['AcceptanceThreshold'].flatten()])[0, 0]
@@ -192,9 +161,8 @@ def run_single(problem_index, run_index):
         'max_function_evaluations': MaxEvals,
     }
 
-    de = LSHADE(problem, options)
-    history = de.optimize()
-    print(history)
+    de = SHADE(problem, options)
+    de.optimize()
 
     convergence = []
     best_error = float('inf')
@@ -204,87 +172,19 @@ def run_single(problem_index, run_index):
             best_error = error
         convergence.append(best_error)
 
-    # Plotting the convergence
-    plt.plot(range(1, len(convergence) + 1), convergence)
-    plt.xlabel('Function Evaluation Number (FE)')
-    plt.ylabel('Error')
-    plt.title('Convergence Plot')
-    plt.yscale('log')  # Set y-axis to logarithmic scale
-    plt.savefig(result_path + f"Problem_{problem_index}" + f"_Convergence_Run_{run_index}.pdf")
-
-    # record convergence to txt file
-    with open(result_path + f"Problem_{problem_index}" + f"_Convergence_Run_{run_index}.txt", 'w') as f:
-        f.write(str(convergence))
-    with open(result_path + f"Problem_{problem_index}" + f"_Best_Params_Run_{run_index}.txt", 'w') as f:
-        f.write(str(gnbg.Best_x))
-    with open(result_path + f"Problem_{problem_index}" + f"_Best_Value_Run_{run_index}.txt", 'w') as f:
-        f.write(str(gnbg.BestFoundResult))
-
-    # record total 31 runs of BestFoundResult and AcceptanceReachPoint to excel
-    save_individual_run(run_index, gnbg, result_path, problem_index)
-    print(f"Results for Problem {problem_index}, Run {run_index} finished.")
+    return gnbg.BestFoundResult
 
 
-def append_df_to_excel(excel_path, df):
-    try:
-        if os.path.exists(excel_path):
-            # 读取现有文件
-            existing_df = pd.read_excel(excel_path)
-            # 合并数据
-            combined_df = pd.concat([existing_df, df], ignore_index=True)
-            # 保存回文件
-            combined_df.to_excel(excel_path, index=False)
-        else:
-            # 如果文件不存在，直接写入
-            df.to_excel(excel_path, index=False)
-    except Exception as e:
-        print(f"Error writing to Excel: {e}")
-
-
-def save_individual_run(run_index, gnbg, result_path, problem_index):
-    # 为每个run创建单独的文件
-    individual_path = os.path.join(result_path, f"Problem_{problem_index}_Run_{run_index}.xlsx")
-
-    df = pd.DataFrame({
-        'Run': [run_index],
-        'BestFoundResult': [gnbg.BestFoundResult],
-        'AcceptanceReachPoint': [gnbg.AcceptanceReachPoint]
-    })
-
-    df.to_excel(individual_path, index=False)
-
-
-def merge_all_runs(result_path, problem_index, total_runs=31):
-    # 合并所有运行结果
-    all_dfs = []
-    for run in range(total_runs):
-        file_path = os.path.join(result_path, f"Problem_{problem_index}_Run_{run}.xlsx")
-        if os.path.exists(file_path):
-            df = pd.read_excel(file_path)
-            all_dfs.append(df)
-            # 可选：删除单独的文件
-            os.remove(file_path)
-
-    if all_dfs:
-        final_df = pd.concat(all_dfs, ignore_index=True)
-        final_path = os.path.join(result_path, f"Problem_{problem_index}_Results.xlsx")
-        final_df.to_excel(final_path, index=False)
-
-def main():
+def main(num_process=100, total_runs=31, test_problems=[1], random_seed=2025):
     # parallel run 31 runs for run single for 24 problems each
     import multiprocessing
-    num_processes = 100  # Get the number of available CPU cores
-    total_runs = 31
-    total_problems = 24
+    num_processes = num_process  # Get the number of available CPU cores
+    total_runs = total_runs
+    test_problems = test_problems
     with multiprocessing.Pool(processes=num_processes) as pool:
-        pool.starmap(run_single, [(problem_index, run_index) for run_index in range(total_runs) for problem_index in range(1, total_problems + 1)])
-    # merge all runs results
-    for problem_index in range(1, total_problems + 1):
-        result_path = f'results/problem_{problem_index}/'
-        merge_all_runs(result_path, problem_index, total_runs)
-        print(f"Results for Problem {problem_index} merged.")
+        results = pool.starmap(run_single, [(problem_index, run_index, random_seed) for run_index in range(total_runs) for problem_index in test_problems])
 
-    print("All runs completed and results merged.")
+    return np.mean(results)
 
 
 if __name__ == "__main__":
