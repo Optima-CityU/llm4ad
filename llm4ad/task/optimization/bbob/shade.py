@@ -2,7 +2,7 @@ import numpy as np  # engine for numerical computing
 from scipy.stats import cauchy  # Cauchy continuous random variable
 
 from jade import JADE  # adaptive differential evolution (JADE)
-
+from typing import Tuple, List
 
 class SHADE(JADE):
     """Success-History based Adaptive Differential Evolution (SHADE).

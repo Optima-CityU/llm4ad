@@ -35,7 +35,7 @@ Copyright notice: (c) 2023 Danial Yazdani
 
 import os
 
-import pandas as pd
+from types import MethodType
 from scipy.io import loadmat
 
 from shade import *
@@ -117,7 +117,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 folder_path = os.path.join(current_dir)
 
 
-def run_single(problem_index, run_index, random_seed):
+def run_single(problem_index, run_index, random_seed, func):
 
     np.random.seed(random_seed)  # This uses a system-based source to seed the random number generator
 
@@ -158,10 +158,11 @@ def run_single(problem_index, run_index, random_seed):
         'problem_name': f'Problem_{problem_index}',
     }
     options = {
-        'max_function_evaluations': MaxEvals,
+        'max_function_evaluations': 300000,  # MaxEvals,
     }
 
     de = SHADE(problem, options)
+    de.mutate = MethodType(func, de)  # Set mutation strategy
     de.optimize()
 
     convergence = []
@@ -175,14 +176,14 @@ def run_single(problem_index, run_index, random_seed):
     return gnbg.BestFoundResult
 
 
-def main(num_process=100, total_runs=31, test_problems=[1], random_seed=2025):
+def main(num_process=100, total_runs=31, test_problems=[1], random_seed=[2025+i for i in range(5)], func=None):
     # parallel run 31 runs for run single for 24 problems each
     import multiprocessing
     num_processes = num_process  # Get the number of available CPU cores
     total_runs = total_runs
     test_problems = test_problems
     with multiprocessing.Pool(processes=num_processes) as pool:
-        results = pool.starmap(run_single, [(problem_index, run_index, random_seed) for run_index in range(total_runs) for problem_index in test_problems])
+        results = pool.starmap(run_single, [(problem_index, run_index, random_seed[run_index], func) for run_index in range(total_runs) for problem_index in test_problems])
 
     return np.mean(results)
 

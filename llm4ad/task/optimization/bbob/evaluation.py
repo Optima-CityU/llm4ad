@@ -35,7 +35,7 @@ class BBOBEvaluation(Evaluation):
 
     def evaluate(self, eva: Callable) -> float:
 
-        fitness = main(num_process=50, total_runs=10, test_problems=[1, 16, 24], random_seed=2025)
+        fitness = main(num_process=50, total_runs=10, test_problems=[13,16,17,18,19], random_seed=[2025+i for i in range(5)], func=eva)
 
         return -fitness  # Negative because we want to minimize the number of bins
 

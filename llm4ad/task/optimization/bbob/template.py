@@ -1,5 +1,26 @@
 template_program = '''
-def mutate(self, x=None, y=None, a=None):
+
+def mutate(self, x: np.ndarray, y: np.ndarray, a: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Mutate the population.
+
+    Args:
+        self: The instance of the class containing the mutation parameters and methods.
+            - n_individuals: Number of individuals in the population.
+            - ndim_problem: Dimensionality of the problem.
+            - h: Number of mutation strategies.
+            - p_min: Minimum probability for mutation.
+            - m_median: Median values for mutation factors.
+            - rng_optimization: Random number generator for optimization.
+        x: The current population of individuals, shape=(pop_size, 30).
+        y: The current fitness values of the population, shape=(pop_size,).
+        a: The archive of inferior solutions, shape=(archive_size, 30).
+
+    Returns:
+        x_mu: The mutated population of individuals.
+        f_mu: The mutation factors for each individual.
+        r: The indices of the selected individuals used for mutation.
+    """
     x_mu = np.empty((self.n_individuals, self.ndim_problem))  # mutated population
     f_mu = np.empty((self.n_individuals,))  # mutated mutation factors
     x_un = np.vstack((np.copy(x), a))  # union of population x and archive a
@@ -19,14 +40,15 @@ def mutate(self, x=None, y=None, a=None):
     return x_mu, f_mu, r
 '''
 
-task_description = '''
-Given a set of bins and items, iteratively assign one item to feasible bins.
-Design a constructive heuristic used in each iteration, with the objective of minimizing the used bins.
-'''
+task_description = "Implement a mutation operator for black-box optimization."
+
+
+
 
 class TEMP:
     def __init__(self):
         self.test = None
+        self.test1 = 'c'
 
     def t(self):
         print("a")
@@ -34,4 +56,16 @@ class TEMP:
 if __name__ == "__main__":
     a = TEMP()
     a.__setattr__('mutate', template_program)
+    tt = '''
+import numpy as np
+def t(self):
+    print(self.test1)
+    '''
+    all_globals_namespace = {}
+    # execute the program, map func/var/class to global namespace
+    exec(tt, all_globals_namespace)
+    # get the pointer of 'function_to_run'
+    program_callable = all_globals_namespace['t']
+    from types import MethodType
+    a.t = MethodType(program_callable, a)
     print(a)
