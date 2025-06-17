@@ -1,25 +1,26 @@
 template_program = '''
-
+import numpy as np
+from typing import Tuple, List
 def mutate(self, x: np.ndarray, y: np.ndarray, a: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Mutate the population.
 
     Args:
         self: The instance of the class containing the mutation parameters and methods.
-            - n_individuals: Number of individuals in the population.
-            - ndim_problem: Dimensionality of the problem.
-            - h: Number of mutation strategies.
-            - p_min: Minimum probability for mutation.
-            - m_median: Median values for mutation factors.
-            - rng_optimization: Random number generator for optimization.
-        x: The current population of individuals, shape=(pop_size, 30).
-        y: The current fitness values of the population, shape=(pop_size,).
-        a: The archive of inferior solutions, shape=(archive_size, 30).
+            - n_individuals: int, Number of individuals in the population.
+            - ndim_problem: int, Dimension of the problem.
+            - h: int, Length of historical memory.
+            - p_min: int, Minimum population size, self.p_min = 2/self.n_individuals.
+            - m_median: np.ndarray, Median values of Cauchy distribution, shape=(self.h,).
+            - rng_optimization: Random number generator for optimization, self.rng_optimization = np.random.default_rng(self.seed_optimization).
+        x: The current population of individuals, shape=(self.n_individuals, self.ndim_problem).
+        y: The current fitness values of the population, shape=(self.n_individuals,).
+        a: The archive of inferior solutions, shape=(self.n_individuals, self.ndim_problem).
 
     Returns:
-        x_mu: The mutated population of individuals.
-        f_mu: The mutation factors for each individual.
-        r: The indices of the selected individuals used for mutation.
+        x_mu: The mutated population of individuals, shape=(self.n_individuals, self.ndim_problem).
+        f_mu: The mutated mutation factors for each individual, shape=(self.n_individuals,).
+        r: The indices of the selected individuals used for mutation and crossover, shape=(self.n_individuals,).
     """
     x_mu = np.empty((self.n_individuals, self.ndim_problem))  # mutated population
     f_mu = np.empty((self.n_individuals,))  # mutated mutation factors

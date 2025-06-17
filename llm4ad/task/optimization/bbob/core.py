@@ -34,11 +34,14 @@ Copyright notice: (c) 2023 Danial Yazdani
 """
 
 import os
+import types
 
-from types import MethodType
+# from types import MethodType
+import numpy as np
 from scipy.io import loadmat
+import multiprocessing
 
-from shade import *
+from llm4ad.task.optimization.bbob.lshade import *
 
 
 # Define the GNBG class
@@ -161,8 +164,11 @@ def run_single(problem_index, run_index, random_seed, func):
         'max_function_evaluations': 300000,  # MaxEvals,
     }
 
-    de = SHADE(problem, options)
-    de.mutate = MethodType(func, de)  # Set mutation strategy
+    de = LSHADE(problem, options, random_seed)
+    all_globals_namespace = {}
+    exec(func, all_globals_namespace)
+    program_callable = all_globals_namespace['mutate']
+    de.mutate = types.MethodType(program_callable, de)
     de.optimize()
 
     convergence = []
@@ -176,9 +182,13 @@ def run_single(problem_index, run_index, random_seed, func):
     return gnbg.BestFoundResult
 
 
-def main(num_process=100, total_runs=31, test_problems=[1], random_seed=[2025+i for i in range(5)], func=None):
+def main(num_process=100, total_runs=31, test_problems=None, random_seed=None, func=None):
     # parallel run 31 runs for run single for 24 problems each
-    import multiprocessing
+    if random_seed is None:
+        random_seed = [2025 + i for i in range(5)]
+    if test_problems is None:
+        test_problems = [13, 16, 17, 18, 19]
+
     num_processes = num_process  # Get the number of available CPU cores
     total_runs = total_runs
     test_problems = test_problems

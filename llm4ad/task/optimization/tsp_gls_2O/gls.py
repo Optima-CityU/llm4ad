@@ -6,7 +6,7 @@ import numba as nb
 import concurrent.futures
 from typing import Tuple
 
-FloatArray = npt.NDArray[np.float_]
+FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int_]
 usecache = True
 

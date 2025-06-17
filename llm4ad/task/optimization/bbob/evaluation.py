@@ -13,7 +13,7 @@ __all__ = ['BBOBEvaluation']
 class BBOBEvaluation(Evaluation):
 
     def __init__(self,
-                 timeout_seconds: int = 60,
+                 timeout_seconds: int = 1800,
                  **kwargs):
         """
         Args:
@@ -33,14 +33,15 @@ class BBOBEvaluation(Evaluation):
         self.folder_path = os.path.join(current_dir)
 
 
-    def evaluate(self, eva: Callable) -> float:
+    def evaluate(self, eva: Callable, program_str: str) -> float:
 
-        fitness = main(num_process=50, total_runs=10, test_problems=[13,16,17,18,19], random_seed=[2025+i for i in range(5)], func=eva)
+        fitness = main(num_process=50, total_runs=5, test_problems=[13, 16, 17, 18, 19],
+                       random_seed=[2025+i for i in range(5)], func=program_str)
 
         return -fitness  # Negative because we want to minimize the number of bins
 
     def evaluate_program(self, program_str: str, callable_func: Callable, **kwargs) -> Any | None:
-        return self.evaluate(callable_func)
+        return self.evaluate(callable_func, program_str)
 
 
 

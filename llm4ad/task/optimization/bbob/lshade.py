@@ -1,10 +1,10 @@
 import numpy as np  # engine for numerical computing
 from scipy.stats import cauchy  # Cauchy continuous random variable
 
-from jade import JADE  # adaptive differential evolution (JADE)
+from llm4ad.task.optimization.bbob.jade import JADE  # adaptive differential evolution (JADE)
 from typing import Tuple, List
 
-class SHADE(JADE):
+class LSHADE(JADE):
     """Success-History based Adaptive Differential Evolution (SHADE).
 
     Parameters
@@ -57,7 +57,7 @@ class SHADE(JADE):
     <https://ieeexplore.ieee.org/document/6557555>`_
     In IEEE Congress on Evolutionary Computation (pp. 71-78). IEEE.
     """
-    def __init__(self, problem, options):
+    def __init__(self, problem, options, rand_seed):
         JADE.__init__(self, problem, options)
         self.h = options.get('h', 100)  # length of historical memory
         assert 0 < self.h
@@ -65,6 +65,11 @@ class SHADE(JADE):
         self.m_median = np.ones(self.h)*self.median  # medians of Cauchy distribution
         self._k = 0  # index to update
         self.p_min = 2.0/self.n_individuals
+        self.initial_pop_size = self.n_individuals
+
+        # set seed
+        self.rng_initialization = np.random.default_rng(rand_seed)
+        self.rng_optimization = np.random.default_rng(rand_seed)
 
     def mutate(self, x=None, y=None, a=None):
         x_mu = np.empty((self.n_individuals, self.ndim_problem))  # mutated population
@@ -117,12 +122,29 @@ class SHADE(JADE):
             self._k = (self._k + 1) % self.h
         return x, y, a
 
+    def population_size_reduce(self, x=None, y=None, a=None, args=None):
+        max_iterations = max(2, self.max_function_evaluations // self.initial_pop_size)  # Ensure at least 2 iterations
+        reduction_factor = (self.initial_pop_size - 4) / (max_iterations - 1)
+        self.n_individuals = max(4, int(self.initial_pop_size - self._n_generations * reduction_factor))
+
+        # Select the best individuals to form the new population
+        if len(a) > self.n_individuals:
+            indices = np.argsort(y)[:self.n_individuals]
+            x = x[indices]
+            y = y[indices]
+            a = np.delete(a, self.rng_optimization.choice(len(a), (len(a) - self.n_individuals,), False), 0)
+        else:
+            # If the archive size is less than the new population size, keep it as is
+            pass
+        return x, y, a
+
     def iterate(self, x=None, y=None, a=None, args=None):
         x_mu, f_mu, r = self.mutate(x, y, a)
         x_cr, p_cr = self.crossover(x_mu, x, r)
         x_cr = self.bound(x_cr, x)
         x, y, a = self.select(args, x, y, x_cr, a, f_mu, p_cr)
-        if len(a) > self.n_individuals:  # randomly remove solutions to keep archive size fixed
-            a = np.delete(a, self.rng_optimization.choice(len(a), (len(a) - self.n_individuals,), False), 0)
+        x, y, a = self.population_size_reduce(x, y, a)
+        # if len(a) > self.n_individuals:  # randomly remove solutions to keep archive size fixed
+        #     a = np.delete(a, self.rng_optimization.choice(len(a), (len(a) - self.n_individuals,), False), 0)
         self._n_generations += 1
         return x, y, a
