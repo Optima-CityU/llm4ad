@@ -194,7 +194,6 @@ def show_problem_parameters(problem_name):
 
     problem_param_frame['text'] = f"{problem_name}"
 
-    print(problem_name[-8:])
     if problem_name[-8:] == 'co_bench':
         yaml_file_path = f"../llm4ad/task/{objectives_var.get()}/co_bench/{problem_name}/paras.yaml"
     else:
