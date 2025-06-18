@@ -139,7 +139,7 @@ class LSHADE(JADE):
         return x, y, a
 
     def iterate(self, x=None, y=None, a=None, args=None):
-        x_mu, f_mu, r = self.mutate(x, y, a)
+        x_mu, f_mu, r = self.mutate(x.copy(), y.copy(), a.copy())
         x_cr, p_cr = self.crossover(x_mu, x, r)
         x_cr = self.bound(x_cr, x)
         x, y, a = self.select(args, x, y, x_cr, a, f_mu, p_cr)

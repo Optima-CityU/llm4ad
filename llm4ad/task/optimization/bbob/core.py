@@ -179,7 +179,7 @@ def run_single(problem_index, run_index, random_seed, func):
             best_error = error
         convergence.append(best_error)
 
-    return gnbg.BestFoundResult
+    return gnbg.BestFoundResult - OptimumValue
 
 
 def main(num_process=100, total_runs=31, test_problems=None, random_seed=None, func=None):
