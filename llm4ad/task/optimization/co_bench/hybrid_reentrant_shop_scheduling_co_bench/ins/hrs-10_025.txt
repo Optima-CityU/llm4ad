@@ -1,0 +1,499 @@
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 7  7  10  12  14  33  23  29  7  20  
+
+Processing times: 196  137  185  131  183  151  182  160  156  151  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 21  30  26  15  16  23  28  23  31  21  
+
+Processing times: 181  171  162  166  160  120  128  170  151  200  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 13  14  22  32  13  14  14  17  21  15  
+
+Processing times: 120  120  153  182  150  133  152  186  168  129  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 28  28  35  31  15  21  35  29  20  31  
+
+Processing times: 183  151  164  196  138  194  192  141  135  125  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 5  35  8  20  6  24  22  31  5  24  
+
+Processing times: 163  121  128  148  157  190  192  155  177  143  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 33  35  15  22  29  16  8  18  27  21  
+
+Processing times: 173  163  131  134  160  184  120  159  168  169  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 7  26  25  7  32  18  23  26  15  30  
+
+Processing times: 121  138  121  199  187  163  156  128  156  171  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 24  9  14  10  11  17  5  30  23  22  
+
+Processing times: 170  157  199  161  129  168  145  133  172  158  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 20  7  20  5  31  27  27  18  21  16  
+
+Processing times: 191  158  175  153  182  190  163  148  164  158  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 27  19  10  5  27  8  22  30  23  7  
+
+Processing times: 186  188  152  186  181  138  196  138  180  146  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 22  32  27  35  7  17  15  20  14  9  
+
+Processing times: 128  163  127  121  188  197  141  168  175  169  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 6  19  14  17  20  28  28  20  22  25  
+
+Processing times: 183  186  188  162  139  199  194  200  166  172  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 31  6  32  29  33  5  23  18  15  7  
+
+Processing times: 129  176  187  143  176  193  122  176  189  140  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 15  34  30  23  8  25  22  8  14  19  
+
+Processing times: 158  127  122  169  132  192  193  172  164  159  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 30  35  9  11  28  22  26  10  23  5  
+
+Processing times: 133  186  161  132  147  167  152  130  120  192  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 26  21  7  8  11  7  31  32  17  21  
+
+Processing times: 198  164  165  124  190  127  125  178  179  184  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 33  35  24  24  8  25  5  20  20  5  
+
+Processing times: 125  159  160  123  150  198  187  165  138  155  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 28  8  19  24  32  27  25  8  34  12  
+
+Processing times: 174  192  170  159  159  134  154  127  134  150  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 11  13  31  27  18  25  6  18  29  34  
+
+Processing times: 161  138  183  155  150  195  140  188  130  188  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 19  27  28  16  9  19  8  25  30  10  
+
+Processing times: 200  131  158  143  179  122  124  190  126  134  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 13  19  20  14  7  20  29  25  9  31  
+
+Processing times: 122  126  187  149  125  162  162  198  153  156  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 28  8  31  31  27  25  20  18  26  18  
+
+Processing times: 135  197  141  182  189  144  154  162  138  175  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 19  15  20  17  34  8  12  33  19  18  
+
+Processing times: 190  130  200  154  149  155  176  156  129  151  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 7  13  16  8  7  14  15  29  27  14  
+
+Processing times: 169  164  150  172  166  151  143  144  191  158  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 33  9  20  19  21  19  19  15  18  34  
+
+Processing times: 164  131  127  122  144  127  168  200  191  141  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 23  8  16  24  9  20  16  28  28  12  
+
+Processing times: 122  158  168  169  142  174  183  121  151  195  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 34  16  31  31  22  33  18  24  26  21  
+
+Processing times: 136  129  163  164  148  129  195  172  140  130  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 9  30  14  29  12  5  26  16  20  10  
+
+Processing times: 133  163  160  169  191  149  141  149  145  128  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 18  23  24  18  5  16  5  18  26  24  
+
+Processing times: 146  179  141  137  129  167  158  134  150  191  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 31  25  16  25  7  17  32  13  8  6  
+
+Processing times: 159  152  138  188  163  178  192  181  188  198  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 5  17  20  23  24  21  33  20  17  26  
+
+Processing times: 155  132  191  156  138  161  149  166  176  158  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 18  19  20  35  26  16  8  31  10  23  
+
+Processing times: 133  149  186  196  140  159  185  186  179  185  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 12  13  24  15  32  8  13  13  32  22  
+
+Processing times: 164  127  199  161  139  188  190  132  159  148  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 7  11  31  10  30  33  30  30  33  22  
+
+Processing times: 147  160  120  128  123  183  151  164  161  189  
+
+------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 6  9  16  19  26  27  5  14  31  12  
+
+Processing times: 181  198  159  180  121  166  182  126  170  158  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 6  5  22  18  32  10  10  12  15  13  
+
+Processing times: 155  183  145  169  165  148  123  161  122  159  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 30  34  7  24  20  31  34  31  6  10  
+
+Processing times: 174  153  152  179  140  195  155  196  151  176  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 24  21  8  12  18  18  14  18  33  16  
+
+Processing times: 163  186  180  137  164  122  168  176  193  197  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 17  19  7  19  14  10  22  22  22  30  
+
+Processing times: 200  136  150  174  123  120  122  166  154  124  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 9  10  26  9  17  22  6  20  34  10  
+
+Processing times: 158  186  120  179  188  183  133  137  151  182  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 24  6  32  24  8  20  31  6  25  28  
+
+Processing times: 176  135  143  130  169  180  196  134  171  156  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 33  7  21  29  5  12  17  10  10  6  
+
+Processing times: 129  168  129  188  144  170  131  151  166  191  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 13  9  13  30  29  33  14  9  6  23  
+
+Processing times: 158  154  176  162  180  121  154  130  176  143  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 21  7  16  19  24  9  31  12  20  11  
+
+Processing times: 191  171  139  176  142  163  133  189  189  150  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 6  7  28  29  25  7  27  31  21  25  
+
+Processing times: 170  190  141  132  140  135  172  125  198  177  
+
+------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 32  32  12  14  21  34  31  15  24  35  
+
+Processing times: 137  169  130  120  185  149  133  185  144  125  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 25  23  33  21  9  9  18  8  27  23  
+
+Processing times: 171  133  199  149  195  154  131  169  140  128  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 5  26  17  23  6  12  6  25  5  35  
+
+Processing times: 163  162  166  197  177  193  156  131  138  185  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 7  6  31  8  18  26  15  9  11  27  
+
+Processing times: 200  158  175  167  130  189  122  124  125  158  
+
+-------------------------------------------------------------------------------
+
+Number of jobs: 10  Number of machines: 2
+
+Initialization time: 1
+
+Setup times: 20  23  24  23  34  9  25  19  24  32  
+
+Processing times: 172  152  160  197  152  135  131  193  155  175  
+
+
