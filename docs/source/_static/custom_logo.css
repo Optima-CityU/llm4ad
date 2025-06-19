@@ -1,0 +1,11 @@
+/* 默认（浅色主题） Logo */
+.logo img {
+    content: url("../assets/figs/logo_light.jpg");
+}
+
+/* 深色主题 Logo */
+@media (prefers-color-scheme: dark) {
+    .logo img {
+        content: url("../assets/figs/logo_dark.jpg");
+    }
+}

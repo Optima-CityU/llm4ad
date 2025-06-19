@@ -1,27 +1,11 @@
-# Module Name: MOEA/D
-# Last Revision: 2025/2/16
-# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
-#
-# Reference:
-#   - Shunyu Yao, Fei Liu, Xi Lin, Zhichao Lu, Zhenkun Wang, and Qingfu Zhang.
-#       "Multi-objective evolution of heuristic using large language model."
-#       In Proceedings of the AAAI Conference on Artificial Intelligence, 2025.
-#
-# ------------------------------- Copyright --------------------------------
-# Copyright (c) 2025 Optima Group.
-#
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
-#
-# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
-# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
-# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
-#
-# For inquiries regarding commercial use or licensing, please contact
-# http://www.llm4ad.com/contact.html
-# --------------------------------------------------------------------------
+# name: str: MOEAD
+# Parameters:
+# max_generations: int: 10
+# max_sample_nums: int: 20
+# pop_size: int: 5
+# num_evaluators: int: 4
+# end
+
 from __future__ import annotations
 
 import concurrent.futures

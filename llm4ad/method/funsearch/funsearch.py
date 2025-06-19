@@ -54,6 +54,8 @@ class FunSearch:
                  **kwargs):
         """Function Search.
         Args:
+            template_program: the seed program (in str) as the initial function of the run.
+                the template_program should be executable, i.e., incorporating package import, and function definition, and function body.
             llm             : an instance of 'llm4ad.base.LLM', which provides the way to query LLM.
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
             profiler        : an instance of 'llm4ad.method.funsearch.FunSearchProfiler'. If you do not want to use it, you can pass a 'None'.
