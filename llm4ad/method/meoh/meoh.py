@@ -157,7 +157,7 @@ class MEoH:
         func.sample_time = sample_time
         try:
             if self._profiler is not None:
-                self._profiler.register_function(func)
+                self._profiler.register_function(func, program=str(program))
                 if isinstance(self._profiler, MEoHProfiler):
                     self._profiler.register_population(self._population)
                 self._tot_sample_nums += 1
@@ -312,3 +312,5 @@ class MEoH:
         # finish
         if self._profiler is not None:
             self._profiler.finish()
+
+        self._sampler.llm.close()

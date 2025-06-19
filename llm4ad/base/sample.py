@@ -68,14 +68,14 @@ class LLM:
 
 class SampleTrimmer:
     def __init__(self, llm: LLM):
-        self._llm = llm
+        self.llm = llm
 
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
         """Get a sample based on the provided 'LLM' instance.
         If the inner sampler sets 'auto_trim' to True, trim anything before the function body.
         """
-        generated_code = self._llm.draw_sample(prompt, *args, **kwargs)
-        if self._llm.do_auto_trim:
+        generated_code = self.llm.draw_sample(prompt, *args, **kwargs)
+        if self.llm.do_auto_trim:
             generated_code = self.__class__.auto_trim(generated_code)
         return generated_code
 
@@ -83,8 +83,8 @@ class SampleTrimmer:
         """Get samples based on the provided 'Sampler' instance.
         If the inner sampler sets 'auto_trim' to True, trim anything before the function body.
         """
-        ret = self._llm.draw_samples(prompts, *args, **kwargs)
-        if self._llm.do_auto_trim:
+        ret = self.llm.draw_samples(prompts, *args, **kwargs)
+        if self.llm.do_auto_trim:
             ret = [self.__class__.auto_trim(code) for code in ret]
         return ret
 
