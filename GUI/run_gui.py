@@ -627,18 +627,19 @@ def init_table(methods_name, problems_name):
     global tree
     global folder_map
 
-    for widget in right_frame2.winfo_children():
+    for widget in container_right_frame2.winfo_children():
         widget.destroy()
 
-    tree = ttk.Treeview(right_frame2)
+    tree = ttk.Treeview(container_right_frame2,bootstyle='secondary')
     tree["columns"] = problems_name
     # 配置行表头列（第一列）
-    tree.column("#0", width=100, minwidth=100, anchor=tk.CENTER)
+    tree.column("#0", width=150, minwidth=100, anchor=tk.CENTER) # todo1
     tree.heading("#0", text="", anchor=tk.CENTER)
     # 配置其他列（列表头）
     for col in problems_name:
-        tree.column(col, width=100, minwidth=100, anchor=tk.CENTER)
-        tree.heading(col, text=col, anchor=tk.CENTER)
+        tree.column(col, width=200, minwidth=100, anchor=tk.CENTER) # todo1
+        coL_text = col.split('/', 1)[-1]
+        tree.heading(col, text=coL_text, anchor=tk.CENTER)
     # 添加行数据（包括行表头）
     for i, row_header in enumerate(methods_name):
         # 使用行表头作为第一列的值，其余列为空
@@ -658,7 +659,7 @@ def init_table(methods_name, problems_name):
 
     tree.bind("<ButtonRelease-1>", tree_on_cell_click)
 
-    tree.pack(padx=10, pady=10)
+    tree.pack(side="left", fill="both", expand=True,padx=10, pady=10)
 
 def tree_on_cell_click(event):
     global tree
@@ -1120,8 +1121,10 @@ def exit_run():
 
 ######################################################################
 
-def show_frame(frame, button):
+def show_frame(frame, button_1,button_2):
     frame.tkraise()
+    button_1.config(bootstyle="link")
+    button_2.config(bootstyle="info")
 
 ###############################################################################
 
@@ -1129,7 +1132,7 @@ if __name__ == '__main__':
 
     root = ttk.Window()
     root.title("LLM4AD")
-    root.geometry("1500x900")
+    root.geometry("1500x950")
     root.protocol("WM_DELETE_WINDOW", exit_run)
 
     root.iconbitmap('./image/icon.ico')
@@ -1138,6 +1141,10 @@ if __name__ == '__main__':
     style.configure("TLabelframe.Label", font=('Helvetica', 15))
     style.configure("TLabel", font=('Comic Sans MS', 12))
     style.configure("TCombobox", font=('Comic Sans MS', 10))
+
+    # todo1 字体和行高
+    style.configure("Treeview",font=('Helvetica', 12), rowheight=50)
+    style.configure("Treeview.Heading",font=('Helvetica', 12))
 
     photo_doc = tk.PhotoImage(file=r"./image/document.png")
     photoimage_doc = photo_doc.subsample(10, 10)
@@ -1165,11 +1172,11 @@ if __name__ == '__main__':
     bottom_frame.grid_rowconfigure(0, weight=1)
     bottom_frame.grid_columnconfigure(0, weight=1)
 
-    button1 = ttk.Button(top_frame, text="Single Experiment", command=lambda: show_frame(frame1, button1))
-    button1.pack(side=tk.LEFT, padx=3)
+    button1 = ttk.Button(top_frame, text="Single Experiment",bootstyle="link", command=lambda: show_frame(frame1, button1,button2))
+    button1.pack(side=tk.LEFT, fill=tk.Y)
 
-    button2 = ttk.Button(top_frame, text="Batch Experiments", command=lambda: show_frame(frame2, button2))
-    button2.pack(side=tk.LEFT, padx=3)
+    button2 = ttk.Button(top_frame, text="Batch Experiments",bootstyle="info", command=lambda: show_frame(frame2, button2,button1))
+    button2.pack(side=tk.LEFT, fill=tk.Y)
 
     link_doc = ttk.Button(top_frame, image=photoimage_doc, command=open_doc_link, bootstyle="info")
     link_doc.pack(side=ttk.RIGHT, padx=3)
@@ -1328,6 +1335,10 @@ if __name__ == '__main__':
     ttk.Separator(frame2, orient='vertical', bootstyle="secondary").grid(row=0, column=1, sticky="ns")
     right_frame2 = ttk.Frame(frame2)
     right_frame2.grid(row=0, column=2, sticky="nsew")
+    container_right_frame2 = tk.Frame(right_frame2)
+    container_right_frame2.grid(row=0, column=0)
+    right_frame2.grid_rowconfigure(0, weight=1)
+    right_frame2.grid_columnconfigure(0, weight=1)
 
     frame2.grid_rowconfigure(0, weight=1)
     frame2.grid_columnconfigure(0, weight=2)
@@ -1418,10 +1429,10 @@ if __name__ == '__main__':
     container_frame_2_2.pack(fill=tk.BOTH, expand=True)
 
     problem_frame2 = ttk.Labelframe(container_frame_2_2, text="Tasks", bootstyle="primary")
-    problem_frame2.grid(row=0, column=0, sticky="nsew")
+    problem_frame2.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
     button_frame_prob_2 = tk.Frame(container_frame_2_2)
-    button_frame_prob_2.grid(row=0, column=1, sticky="nsew")
+    button_frame_prob_2.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
     add_button22 = ttk.Button(button_frame_prob_2, text="Add-->", width=12, command=add_problem,
                              bootstyle="primary-outline", state=tk.NORMAL)
@@ -1440,7 +1451,7 @@ if __name__ == '__main__':
     button_frame_prob_2.grid_columnconfigure(2, weight=2)
 
     real_problem_frame2 = ttk.Labelframe(container_frame_2_2, text="Selected Tasks", bootstyle="warning")
-    real_problem_frame2.grid(row=0, column=2, sticky="nsew")
+    real_problem_frame2.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
 
     container_frame_2_2.grid_rowconfigure(0, weight=10)
     container_frame_2_2.grid_columnconfigure(0, weight=10)
@@ -1465,7 +1476,7 @@ if __name__ == '__main__':
                 radiobutton_list2.append(name)
         break
     combobox2 = ttk.Combobox(objectives_frame2, state='readonly', values=radiobutton_list2, textvariable=objectives_var2,
-                            bootstyle="warning", font=('Comic Sans MS', 12))
+                            bootstyle="primary", font=('Comic Sans MS', 12),width=15)
     combobox2.pack(anchor=tk.NW, padx=5, pady=5)
 
     combobox2.bind('<<ComboboxSelected>>', batch_exp_problem_type_select)
@@ -1477,7 +1488,7 @@ if __name__ == '__main__':
     container_frame_3_2.pack(fill=tk.BOTH, expand=True)
 
     para_setting_frame2 = ttk.Labelframe(container_frame_3_2, text="Parameter Settings", bootstyle="primary")
-    para_setting_frame2.grid(row=0, column=0, sticky="nsew")
+    para_setting_frame2.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
     container_frame_3_2.grid_rowconfigure(0, weight=10)
     container_frame_3_2.grid_columnconfigure(0, weight=10)
@@ -1499,7 +1510,7 @@ if __name__ == '__main__':
     ##########################################################
 
     # 默认显示 Frame 1，并设置按钮状态
-    show_frame(frame1, button1)
+    show_frame(frame1, button1, button2)
 
     ##########################################################
 
