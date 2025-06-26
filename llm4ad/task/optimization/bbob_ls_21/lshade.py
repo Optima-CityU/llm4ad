@@ -1,8 +1,8 @@
 import numpy as np  # engine for numerical computing
 from scipy.stats import cauchy  # Cauchy continuous random variable
 
-from llm4ad.task.optimization.bbob_test.test_restart_selection.jade import JADE  # adaptive differential evolution (JADE)
-from llm4ad.task.optimization.bbob_test.test_restart_selection.de import DE
+from llm4ad.task.optimization.bbob_cr.jade import JADE  # adaptive differential evolution (JADE)
+from typing import Tuple, List
 
 class LSHADE(JADE):
     """Success-History based Adaptive Differential Evolution (SHADE).
@@ -71,26 +71,6 @@ class LSHADE(JADE):
         self.rng_initialization = np.random.default_rng(rand_seed)
         self.rng_optimization = np.random.default_rng(rand_seed)
 
-        # restart
-        self.restart_threshold = 1e6
-
-    def initialize_1(self, args=None):
-        pass
-
-    def initialize_2(self, args=None):
-        pass
-
-    def initialize_3(self, args=None):
-        pass
-
-    def select_initialize(self, index=0):
-        if index == 0:
-            return self.initialize_1()
-        elif index == 1:
-            return self.initialize_2()
-        else:
-            return self.initialize_3()
-
     def mutate(self, x=None, y=None, a=None):
         x_mu = np.empty((self.n_individuals, self.ndim_problem))  # mutated population
         f_mu = np.empty((self.n_individuals,))  # mutated mutation factors
@@ -122,13 +102,14 @@ class LSHADE(JADE):
                     x_cr[k, i] = x_mu[k, i]
         return x_cr, p_cr
 
-    def select(self, args=None, x=None, y=None, x_cr=None, a=None, f_mu=None, p_cr=None):
+    def select(self, args=None, x=None, y=None, x_cr=None, y_cr=None, a=None, f_mu=None, p_cr=None):
         # set successful mutation factors, crossover probabilities, fitness differences
         f, p, d = np.empty((0,)), np.empty((0,)), np.empty((0,))
         for k in range(self.n_individuals):
             if self._check_terminations():
                 break
-            yy = self._evaluate_fitness(x_cr[k], args)
+            # yy = self._evaluate_fitness(x_cr[k], args)
+            yy = y_cr[k]
             if yy < y[k]:
                 a = np.vstack((a, x[k]))  # archive of inferior solutions
                 f = np.hstack((f, f_mu[k]))  # archive of successful mutation factors
@@ -158,36 +139,23 @@ class LSHADE(JADE):
             pass
         return x, y, a
 
+    def local_search(self, x_cr=None, args=None):
+        y_ls = np.empty((self.n_individuals,))
+        x_ls = x_cr
+        for k in range(self.n_individuals):
+            if self._check_terminations():
+                break
+            y_ls[k] = self._evaluate_fitness(x_ls[k], args)
+        return x_ls, y_ls
+
     def iterate(self, x=None, y=None, a=None, args=None):
         x_mu, f_mu, r = self.mutate(x.copy(), y.copy(), a.copy())
         x_cr, p_cr = self.crossover(x_mu.copy(), x.copy(), r.copy())
         x_cr = self.bound(x_cr, x)
-        x, y, a = self.select(args, x, y, x_cr, a, f_mu, p_cr)
+        x_ls, y_ls = self.local_search(x_cr.copy())
+        x, y, a = self.select(args, x, y, x_ls, y_ls, a, f_mu, p_cr)
         x, y, a = self.change_population(x.copy(), y.copy(), a.copy())
         # if len(a) > self.n_individuals:  # randomly remove solutions to keep archive size fixed
         #     a = np.delete(a, self.rng_optimization.choice(len(a), (len(a) - self.n_individuals,), False), 0)
         self._n_generations += 1
         return x, y, a
-
-    def check_not_improving(self):
-        if self.counter_early_stopping >= self.restart_threshold:
-            self.counter_early_stopping = 0
-            self.base_early_stopping = -np.inf
-            return True
-        else:
-            return False
-
-    def optimize(self, fitness_function=None, args=None):
-        count_restart = 0
-        fitness = DE.optimize(self, fitness_function)
-        x, y, a = self.select_initialize(count_restart % 3)
-        count_restart += 1
-
-        while not self._check_terminations():
-            self._print_verbose_info(fitness, y)
-            if self.check_not_improving():
-                x, y, a = self.select_initialize(count_restart % 3)
-                count_restart += 1
-            x, y, a = self.iterate(x, y, a, args)
-
-        return self._collect(fitness, y)

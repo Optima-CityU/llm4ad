@@ -348,6 +348,118 @@ def initialize_3(self, args=None):
     
     return x, y, a'''
 
+crossover_v1 = '''
+import numpy as np
+from typing import Tuple, List
+def crossover_1(self, x_mu=None, x=None, r=None):
+    x_cr = np.copy(x)
+    p_cr = np.empty((self.n_individuals,))  # crossover probabilities
+    for k in range(self.n_individuals):
+        p_cr[k] = self.rng_optimization.normal(self.m_mu[r[k]], 0.1)
+        p_cr[k] = np.minimum(np.maximum(p_cr[k], 0.0), 1.0)
+        i_rand = self.rng_optimization.integers(self.ndim_problem)
+        for i in range(self.ndim_problem):
+            if (i == i_rand) or (self.rng_optimization.random() < p_cr[k]):
+                x_cr[k, i] = x_mu[k, i]
+    return x_cr, p_cr'''
+
+crossover_v2 = '''
+import numpy as np
+from typing import Tuple, List
+def crossover_2(self, x_mu=None, x=None, r=None):
+    """
+    Crossover the population individuals.
+
+    Args:
+        self: The instance of the class containing the mutation parameters and methods.
+            - n_individuals: int, Number of individuals in the population.
+            - ndim_problem: int, Dimension of the problem.
+            - h: int, Length of historical memory.
+            - p_min: int, Minimum population size, self.p_min = 2/self.n_individuals.
+            - max_function_evaluations: int, Maximum number of function evaluations.
+            - initial_pop_size: int, Initial population size.
+            - _n_generations: int, Current number of generations.
+            - m_median: np.ndarray, Median values of Cauchy distribution, shape=(self.h,).
+            - rng_optimization: Random number generator for optimization, self.rng_optimization = np.random.default_rng(self.seed_optimization).
+        x_mu: The mutated population of individuals, shape=(self.n_individuals, self.ndim_problem).
+        x: The current population of individuals, shape=(self.n_individuals, self.ndim_problem).
+        r: The indices of the selected individuals used for mutation and crossover, shape=(self.n_individuals,).
+
+    Returns:
+        x_cr: The crossover population of individuals, shape=(self.n_individuals, self.ndim_problem).
+        p_cr: The crossover probabilities for each individual, shape=(self.n_individuals,).
+    """
+    import numpy as np
+    from scipy.spatial.distance import cdist
+
+    x_cr = np.copy(x_mu)
+    p_cr = np.zeros(self.n_individuals)
+
+    bracket_size = max(4, self.n_individuals // 4)
+    n_brackets = max(2, self.n_individuals // bracket_size)
+
+    fitness_ranks = np.argsort(np.argsort(r))
+    centroid = np.mean(x_mu, axis=0)
+    distances = np.linalg.norm(x_mu - centroid, axis=1)
+    distance_ranks = np.argsort(np.argsort(distances))
+
+    total_generations = self.max_function_evaluations / self.initial_pop_size
+    cycle_period = total_generations * 0.2
+    phase = (self._n_generations % cycle_period) / cycle_period
+
+    oscillation_factor = 0.5 * (1 + np.sin(2 * np.pi * phase))
+    exploration_weight = 0.8 * oscillation_factor + 0.2 * (1 - oscillation_factor)
+
+    combined_scores = (1 - exploration_weight) * fitness_ranks + exploration_weight * distance_ranks
+    sorted_indices = np.argsort(combined_scores)
+
+    brackets = [[] for _ in range(n_brackets)]
+    for i, idx in enumerate(sorted_indices):
+        bracket_idx = i % n_brackets if (i // n_brackets) % 2 == 0 else n_brackets - 1 - (i % n_brackets)
+        brackets[bracket_idx].append(idx)
+
+    momentum = 0.5 * (1 + np.tanh((self._n_generations - total_generations * 0.3) / (total_generations * 0.1)))
+
+    for bracket_idx, bracket in enumerate(brackets):
+        if len(bracket) < 2:
+            continue
+
+        bracket_fitness = r[bracket]
+        competitiveness = np.std(bracket_fitness) / (np.mean(bracket_fitness) + 1e-8)
+
+        bracket_ranks = np.argsort(bracket_fitness)
+        winners = [bracket[i] for i in bracket_ranks[:len(bracket)//2]]
+        losers = [bracket[i] for i in bracket_ranks[len(bracket)//2:]]
+
+        for i in range(len(bracket)):
+            individual_idx = bracket[i]
+
+            if individual_idx in winners:
+                partner_pool = [w for w in winners if w != individual_idx]
+                base_prob = 0.15 + 0.4 * (1 - momentum)
+            else:
+                partner_pool = winners
+                base_prob = 0.65 + 0.15 * momentum
+
+            if partner_pool:
+                partner = self.rng_optimization.choice(partner_pool)
+            else:
+                partner = self.rng_optimization.choice([idx for idx in bracket if idx != individual_idx])
+
+            oscillation_bonus = 0.1 * np.sin(4 * np.pi * phase)
+            competitiveness_factor = np.tanh(2 * competitiveness)
+            p_cr[individual_idx] = base_prob * (0.85 + 0.3 * competitiveness_factor) + oscillation_bonus
+            p_cr[individual_idx] *= (0.75 + 0.25 * self.rng_optimization.random())
+            p_cr[individual_idx] = np.clip(p_cr[individual_idx], 0.1, 0.9)
+
+            mask = self.rng_optimization.random(self.ndim_problem) < p_cr[individual_idx]
+            if not np.any(mask):
+                mask[self.rng_optimization.integers(0, self.ndim_problem)] = True
+
+            x_cr[individual_idx][mask] = x[partner][mask]
+
+    return x_cr, p_cr'''
+
 
 # Define the GNBG class
 class GNBG:
@@ -502,13 +614,23 @@ def run_single(problem_index, run_index, rand_seed):
     exec(initial_v1, all_globals_namespace)
     exec(initial_v2, all_globals_namespace)
     exec(initial_v3, all_globals_namespace)
+    exec(crossover_v2, all_globals_namespace)
+    exec(crossover_v1, all_globals_namespace)
     program_callable_ini_v1 = all_globals_namespace['initialize_1']
     program_callable_ini_v2 = all_globals_namespace['initialize_2']
     program_callable_ini_v3 = all_globals_namespace['initialize_3']
+    program_callable_crossover_v2 = all_globals_namespace['crossover_2']
+    program_callable_crossover_v1 = all_globals_namespace['crossover_1']
 
     de.initialize_1 = types.MethodType(program_callable_ini_v1, de)
     de.initialize_2 = types.MethodType(program_callable_ini_v2, de)
     de.initialize_3 = types.MethodType(program_callable_ini_v3, de)
+
+    if ProblemIndex == 13:
+        de.crossover = types.MethodType(program_callable_crossover_v2, de)
+    else:
+        if __name__ == '__main__':
+            de.crossover = types.MethodType(program_callable_crossover_v1, de)
 
     history = de.optimize()
     print(history)
@@ -595,7 +717,7 @@ def main():
     import multiprocessing
     num_processes = 85  # Get the number of available CPU cores
     total_runs = 31
-    total_problems = [1+i for i in range(24)]
+    total_problems = [1+i for i in range(13, 24)]
     random_seed = [2025 + i for i in range(total_runs)]
     with multiprocessing.Pool(processes=num_processes) as pool:
         results = pool.starmap(run_single, [(problem_index, run_index, random_seed[run_index]) for run_index in range(total_runs) for problem_index in total_problems])  # ,1,2,3,4,5,6,7,8,9,10,11,12,14,15,20,21,22,23,24
