@@ -1,7 +1,7 @@
 import numpy as np  # engine for numerical computing
 from scipy.stats import cauchy  # Cauchy continuous random variable
 
-from llm4ad.task.optimization.bbob_initial.de import DE # abstract class of all differential evolution (DE)
+from llm4ad.task.optimization.bbob_test.test_restart_selection.de import DE # abstract class of all differential evolution (DE)
 
 
 class JADE(DE):

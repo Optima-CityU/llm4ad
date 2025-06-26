@@ -94,8 +94,8 @@ class Optimizer(object):
         self.is_restart = options.get('is_restart', True)
         # all members of *early stopping* (closed by default according to following settings)
         self.early_stopping_evaluations = options.get('early_stopping_evaluations', np.inf)
-        self.early_stopping_threshold = options.get('early_stopping_threshold', 0.0)
-        self._counter_early_stopping, self._base_early_stopping = 0, self.best_so_far_y
+        self.early_stopping_threshold = options.get('early_stopping_threshold', 0.00001)
+        self.counter_early_stopping, self.base_early_stopping = 0, self.best_so_far_y
 
     def _evaluate_fitness(self, x, args=None):
         self.start_function_evaluations = time.time()
@@ -105,14 +105,14 @@ class Optimizer(object):
             y = self.fitness_function(x, args=args)
         self.time_function_evaluations += time.time() - self.start_function_evaluations
         self.n_function_evaluations += 1
-        # update best-so-far solution (x) and fitness (y)
+        # update best-so-far solution (x) and fitness (y) and restart count
         if y < self.best_so_far_y:
             self.best_so_far_x, self.best_so_far_y = np.copy(x), y
         # update all settings related to early stopping
-        if (self._base_early_stopping - y) <= self.early_stopping_threshold:
-            self._counter_early_stopping += 1
+        if (self.base_early_stopping - y) <= self.early_stopping_threshold:
+            self.counter_early_stopping += 1
         else:
-            self._counter_early_stopping, self._base_early_stopping = 0, y
+            self.counter_early_stopping, self.base_early_stopping = 0, y
         return float(y)
 
     def _check_terminations(self):
@@ -123,7 +123,7 @@ class Optimizer(object):
             termination_signal = True, Terminations.MAX_RUNTIME
         elif self.best_so_far_y <= self.fitness_threshold:
             termination_signal = True, Terminations.FITNESS_THRESHOLD
-        elif self._counter_early_stopping >= self.early_stopping_evaluations:
+        elif self.counter_early_stopping >= self.early_stopping_evaluations:
             termination_signal = True, Terminations.EARLY_STOPPING
         else:
             termination_signal = False, Terminations.NO_TERMINATION

@@ -1,7 +1,7 @@
 import numpy as np  # engine for numerical computing
 
 # Abstract class of all optimizers for continuous black-box **minimization**
-from llm4ad.task.optimization.bbob_initial.optimizer import Optimizer
+from llm4ad.task.optimization.bbob_test.test_restart_selection.optimizer import Optimizer
 
 
 class DE(Optimizer):
