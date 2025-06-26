@@ -23,7 +23,9 @@ import multiprocessing
 import sys
 import time
 from abc import ABC, abstractmethod
+from queue import Empty
 from typing import Any, Literal
+import psutil
 
 from .code import TextFunctionProgramConverter, Program
 from .modify_code import ModifyCode
@@ -43,6 +45,7 @@ class Evaluation(ABC):
             exec_code: bool = True,
             safe_evaluate: bool = True,
             daemon_eval_process: bool = False,
+            kill_all_child_process_if_timeout: bool = True,
             fork_proc: Literal['auto'] | bool = 'auto'
     ):
         """Evaluation interface for executing generated code.
@@ -100,6 +103,7 @@ class Evaluation(ABC):
         self.safe_evaluate = safe_evaluate
         self.daemon_eval_process = daemon_eval_process
         self.fork_proc = fork_proc
+        self.kill_all_child_process_if_timeout = kill_all_child_process_if_timeout
 
     @abstractmethod
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
@@ -136,9 +140,12 @@ class SecureEvaluator:
     def __init__(self,
                  evaluator: Evaluation,
                  debug_mode=False,
+                 *,
+                 join_timeout_seconds=5,
                  **kwargs):
         self._evaluator = evaluator
         self._debug_mode = debug_mode
+        self._join_timeout_seconds = join_timeout_seconds
         fork_proc = self._evaluator.fork_proc
 
         if self._evaluator.safe_evaluate:
@@ -167,6 +174,22 @@ class SecureEvaluator:
             )
         return program_str
 
+    def _kill_process_and_its_children(self, process: multiprocessing.Process):
+        # find all children processes
+        children_processes = psutil.Process(process.pid).children(recursive=True)
+        # kill all children processes
+        if self._evaluator.kill_all_child_process_if_timeout:
+            for child in children_processes:
+                if self._debug_mode:
+                    print(f"Killing process {process.pid}'s children process {child.pid}")
+                child.terminate()
+        # kill current evaluation process
+        process.terminate()
+        process.join(timeout=self._join_timeout_seconds)
+        if process.is_alive():
+            process.kill()
+            process.join()
+
     def evaluate_program(self, program: str | Program, **kwargs):
         try:
             program_str = str(program)
@@ -193,28 +216,20 @@ class SecureEvaluator:
                         # get the result in timeout seconds
                         result = result_queue.get(timeout=self._evaluator.timeout_seconds)
                         # after getting the result, terminate/kill the process
-                        process.terminate()
-                        process.join(timeout=5)
-                        if process.is_alive():
-                            process.kill()
-                            process.join()
-                    except:
+                        self._kill_process_and_its_children(process)
+                    except Empty:
                         # timeout
                         if self._debug_mode:
                             print(f'DEBUG: the evaluation time exceeds {self._evaluator.timeout_seconds}s.')
-                        process.terminate()
-                        process.join(timeout=5)
-                        if process.is_alive():
-                            process.kill()
-                            process.join()
+                        self._kill_process_and_its_children(process)
+                        result = None
+                    except Exception as e:
+                        print(f'DEBUG: evaluation failed with exception:\n{e}')
                         result = None
                 else:
                     result = result_queue.get()
-                    process.terminate()
-                    process.join(timeout=5)
-                    if process.is_alive():
-                        process.kill()
-                        process.join()
+                    self._kill_process_and_its_children(process)
+
                 return result
             else:
                 return self._evaluate(program_str, function_name, **kwargs)
