@@ -715,7 +715,7 @@ def merge_all_runs(result_path, problem_index, total_runs=31):
 def main():
     # parallel run 31 runs for run single for 24 problems each
     import multiprocessing
-    num_processes = 85  # Get the number of available CPU cores
+    num_processes = 98  # Get the number of available CPU cores
     total_runs = 31
     total_problems = [1+i for i in range(24)]
     random_seed = [2025 + i for i in range(total_runs)]

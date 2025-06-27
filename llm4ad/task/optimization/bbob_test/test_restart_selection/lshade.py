@@ -73,7 +73,7 @@ class LSHADE(JADE):
 
         # restart
         self.optimal_value = optimal_value
-        self.restart_threshold = 2e4  # 1e6
+        self.restart_threshold = 3e4  # 1e6
 
     def initialize_1(self, args=None):
         pass
