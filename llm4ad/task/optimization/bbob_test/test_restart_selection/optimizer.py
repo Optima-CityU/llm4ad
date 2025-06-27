@@ -94,7 +94,7 @@ class Optimizer(object):
         self.is_restart = options.get('is_restart', True)
         # all members of *early stopping* (closed by default according to following settings)
         self.early_stopping_evaluations = options.get('early_stopping_evaluations', np.inf)
-        self.early_stopping_threshold = options.get('early_stopping_threshold', 0.1)
+        self.early_stopping_threshold = options.get('early_stopping_threshold', 0.01)  # 0.00001
         self.counter_early_stopping, self.base_early_stopping = 0, self.best_so_far_y
 
     def _evaluate_fitness(self, x, args=None):
@@ -109,7 +109,7 @@ class Optimizer(object):
         if y < self.best_so_far_y:
             self.best_so_far_x, self.best_so_far_y = np.copy(x), y
         # update all settings related to early stopping
-        if (self.base_early_stopping - y) <= self.early_stopping_threshold:
+        if (self.base_early_stopping - y) <= self.early_stopping_threshold and abs(self.best_so_far_y - self.fitness_threshold) > 1e-8:
             self.counter_early_stopping += 1
         else:
             self.counter_early_stopping, self.base_early_stopping = 0, y

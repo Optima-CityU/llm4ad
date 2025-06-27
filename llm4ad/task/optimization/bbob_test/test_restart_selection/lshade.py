@@ -57,7 +57,7 @@ class LSHADE(JADE):
     <https://ieeexplore.ieee.org/document/6557555>`_
     In IEEE Congress on Evolutionary Computation (pp. 71-78). IEEE.
     """
-    def __init__(self, problem, options, rand_seed):
+    def __init__(self, problem, options, rand_seed, optimal_value):
         JADE.__init__(self, problem, options)
         self.h = options.get('h', 100)  # length of historical memory
         assert 0 < self.h
@@ -72,7 +72,8 @@ class LSHADE(JADE):
         self.rng_optimization = np.random.default_rng(rand_seed)
 
         # restart
-        self.restart_threshold = 1e6
+        self.optimal_value = optimal_value
+        self.restart_threshold = 2e4  # 1e6
 
     def initialize_1(self, args=None):
         pass

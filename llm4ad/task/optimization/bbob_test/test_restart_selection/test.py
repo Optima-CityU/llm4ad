@@ -606,9 +606,10 @@ def run_single(problem_index, run_index, rand_seed):
     }
     options = {
         'max_function_evaluations': MaxEvals,
+        'fitness_threshold': OptimumValue
     }
 
-    de = LSHADE(problem, options, rand_seed)
+    de = LSHADE(problem, options, rand_seed, OptimumValue)
     all_globals_namespace = {}
 
     exec(initial_v1, all_globals_namespace)
@@ -629,8 +630,7 @@ def run_single(problem_index, run_index, rand_seed):
     if ProblemIndex == 13:
         de.crossover = types.MethodType(program_callable_crossover_v2, de)
     else:
-        if __name__ == '__main__':
-            de.crossover = types.MethodType(program_callable_crossover_v1, de)
+        de.crossover = types.MethodType(program_callable_crossover_v1, de)
 
     history = de.optimize()
     print(history)
@@ -717,7 +717,7 @@ def main():
     import multiprocessing
     num_processes = 85  # Get the number of available CPU cores
     total_runs = 31
-    total_problems = [1+i for i in range(13, 24)]
+    total_problems = [1+i for i in range(24)]
     random_seed = [2025 + i for i in range(total_runs)]
     with multiprocessing.Pool(processes=num_processes) as pool:
         results = pool.starmap(run_single, [(problem_index, run_index, random_seed[run_index]) for run_index in range(total_runs) for problem_index in total_problems])  # ,1,2,3,4,5,6,7,8,9,10,11,12,14,15,20,21,22,23,24
