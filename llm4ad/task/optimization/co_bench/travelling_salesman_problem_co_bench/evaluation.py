@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.travelling_salesman_problem_co_bench.template import template_program, task_description
 
 __all__ = ['TSPEvaluationCB']
@@ -31,16 +31,20 @@ class TSPEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Travelling salesman problem")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,7 +61,7 @@ class TSPEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, file_path):
+    def load_data(self, input_string):
         """
         Load TSP instances from a file.
         Args:
@@ -68,8 +72,8 @@ class TSPEvaluationCB(Evaluation):
                 - 'tour': List of node indices representing the optimal tour (if available)
         """
         instances = []
-        with open(file_path, "r") as f:
-            for line in f:
+        for line in input_string.split('\n'):
+            if line.strip():  # Skip empty lines
                 line = line.split(" ")
                 try:
                     output_idx = line.index('output')
@@ -86,7 +90,7 @@ class TSPEvaluationCB(Evaluation):
 
                     instances.append({
                         'nodes': nodes,
-                        'label_tour': tour
+                        'tour': tour  # Changed from 'label_tour' to 'tour' to match eval_func
                     })
                 except (ValueError, IndexError) as e:
                     print(f"Error processing line: {e}")

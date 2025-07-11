@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.resource_constrained_shortest_path_co_bench.template import template_program, task_description
 
 __all__ = ['RCSPEvaluationCB']
@@ -31,16 +31,20 @@ class RCSPEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Resource constrained shortest path")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,7 +61,7 @@ class RCSPEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_file_path):
+    def load_data(self, input_string):
         """
         Load one or more cases from a TXT input file for the Resource Constrained Shortest Path problem.
         The input file format (per case) is as follows:
@@ -77,8 +81,7 @@ class RCSPEvaluationCB(Evaluation):
           A list of cases. Each case is a dictionary with keys:
              "n", "m", "K", "lower_bounds", "upper_bounds", "vertex_resources", "graph"
         """
-        with open(input_file_path, 'r') as f:
-            tokens = f.read().split()
+        tokens = input_string.split()
 
         cases = []
         pos = 0

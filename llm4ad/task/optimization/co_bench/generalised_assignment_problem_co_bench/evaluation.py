@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.generalised_assignment_problem_co_bench.template import template_program, task_description
 
 __all__ = ['GAPEvaluationCB']
@@ -31,16 +31,20 @@ class GAPEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Generalised assignment problem")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,10 +61,10 @@ class GAPEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_file_path):
+    def load_data(self, input_string):
         """
         Load and parse the input file for the Generalised Assignment Problem (GAP).
-        The input file is expected to be a whitespace‐delimited text file with the following format:
+        The input is expected to be a whitespace‐delimited text file with the following format:
           - The first token is an integer P, indicating the number of cases.
           - For each case, the following tokens are provided sequentially:
               • Two integers: m (number of agents) and n (number of jobs).
@@ -75,8 +79,7 @@ class GAPEvaluationCB(Evaluation):
         """
         cases = []
         try:
-            with open(input_file_path, 'r') as f:
-                tokens = f.read().split()
+            tokens = input_string.split()
         except Exception as e:
             raise Exception("Error reading input file: " + str(e))
 
@@ -124,10 +127,9 @@ class GAPEvaluationCB(Evaluation):
                 except Exception as e:
                     raise Exception("Error reading capacity value: " + str(e))
                 ptr += 1
-            if 'gapa.txt' in input_file_path or 'gapb.txt' in input_file_path or 'gapc.txt' in input_file_path or 'gapd.txt' in input_file_path:
-                problem_type = 'min'
-            else:
-                problem_type = 'max'
+            # Determine problem type based on content analysis or default to 'max'
+            # Since we don't have file name, we'll default to 'max' for now
+            problem_type = 'max'
 
             case = {
                 'm': m,

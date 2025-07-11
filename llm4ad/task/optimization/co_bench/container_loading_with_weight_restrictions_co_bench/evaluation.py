@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.container_loading_with_weight_restrictions_co_bench.template import template_program, task_description
 
 __all__ = ['CLWREvaluationCB']
@@ -32,16 +32,20 @@ class CLWREvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Container loading with weight restrictions")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -58,7 +62,7 @@ class CLWREvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, file_path):
+    def load_data(self, input_string):
         """
         Loads the input data file for the Container Loading problem.
         The input file may contain one or more test cases. For each test case:
@@ -71,21 +75,20 @@ class CLWREvaluationCB(Evaluation):
            A list where each element is a dictionary containing the input data for one test case with keys:
              'container', 'n', 'cargo_vol', and 'box_types'.
         """
-        with open(file_path, 'r') as fin:
-            lines = [line.strip() for line in fin if line.strip() != '']
+        all_lines = [line.strip() for line in input_string.split('\n')]
 
         cases = []
         i = 0
-        while i < len(lines):
+        while i < len(all_lines):
             # Read container dimensions.
-            parts = lines[i].split()
+            parts = all_lines[i].split()
             if len(parts) < 3:
                 raise ValueError("Invalid container dimensions line.")
             container = (int(parts[0]), int(parts[1]), int(parts[2]))
             i += 1
 
             # Read header: number of box types and cargo volume.
-            parts = lines[i].split()
+            parts = all_lines[i].split()
             if len(parts) < 2:
                 raise ValueError("Invalid test-case header line.")
             n = int(parts[0])
@@ -95,9 +98,9 @@ class CLWREvaluationCB(Evaluation):
             # Read details for each box type.
             box_types = []
             for _ in range(n):
-                parts = lines[i].split()
+                parts = all_lines[i].split()
                 if len(parts) != 11:
-                    raise ValueError("Invalid box type line: " + lines[i])
+                    raise ValueError("Invalid box type line: " + all_lines[i])
                 box_type = {
                     'length': int(parts[0]),
                     'length_flag': int(parts[1]),

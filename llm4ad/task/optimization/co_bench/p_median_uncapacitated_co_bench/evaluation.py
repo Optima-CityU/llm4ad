@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.p_median_uncapacitated_co_bench.template import template_program, task_description
 
 __all__ = ['PMUEvaluationCB']
@@ -31,16 +31,20 @@ class PMUEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "p-median - uncapacitated")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,12 +61,12 @@ class PMUEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_file):
+    def load_data(self, input_string):
         """
         Loads one or more cases from the input file for the p-median problem, optimized for speed.
         This version uses NumPy to perform the Floyd–Warshall algorithm in a vectorized manner,
         which is significantly faster than the pure-Python triple nested loops for moderate-to-large graphs.
-        The input file is expected to have one or more cases. Each case starts with a header line
+        The input is expected to have one or more cases. Each case starts with a header line
         containing three numbers: n m p, where:
             - n: number of vertices,
             - m: number of edges,
@@ -87,13 +91,12 @@ class PMUEvaluationCB(Evaluation):
         INF = math.inf
 
         # Read the entire file and filter out empty lines
-        with open(input_file, 'r') as f:
-            lines = [line.strip() for line in f if line.strip()]
+        all_lines = [line.strip() for line in input_string.split('\n')]
 
         cases = []
         idx = 0
-        while idx < len(lines):
-            header_parts = lines[idx].split()
+        while idx < len(all_lines):
+            header_parts = all_lines[idx].split()
             idx += 1
             if len(header_parts) < 3:
                 raise ValueError("Header line must contain at least three numbers: n, m, p.")
@@ -109,8 +112,8 @@ class PMUEvaluationCB(Evaluation):
             np.fill_diagonal(dist, 0.0)
 
             edges_read = 0
-            while edges_read < m and idx < len(lines):
-                tokens = lines[idx].split()
+            while edges_read < m and idx < len(all_lines):
+                tokens = all_lines[idx].split()
                 idx += 1
                 if len(tokens) < 3:
                     continue

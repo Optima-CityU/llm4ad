@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.capacitated_warehouse_location_co_bench.template import template_program, task_description
 
 __all__ = ['CWLEvaluationCB']
@@ -31,16 +31,20 @@ class CWLEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face with fallback
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Capacitated warehouse location")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,15 +61,15 @@ class CWLEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
-        Reads one or more problem cases from the input file.
-        Expected Input File Format for each case:
+        Reads one or more problem cases from the input string.
+        Expected Input String Format for each case:
           Line 1: Two integers: m n
           Next m lines: Each line contains two numbers: capacity fixed_cost for a warehouse.
           Next n lines: Each line contains: demand (a number) followed by m numbers representing the cost of
                       allocating the customer's demand to each warehouse.
-        If the input file contains multiple cases, the cases appear sequentially in the file.
+        If the input string contains multiple cases, the cases appear sequentially.
         Returns:
           A list of dictionaries, each corresponding to one case. Each dictionary has the keys:
              - 'm': Number of potential warehouses (int)
@@ -74,14 +78,13 @@ class CWLEvaluationCB(Evaluation):
              - 'customers': List of dictionaries; each with keys 'demand' and 'costs' (list of floats)
         """
         try:
-            with open(input_path, 'r') as fin:
-                input_lines = fin.readlines()
+            all_lines = [line.strip() for line in input_string.split('\n')]
         except Exception as e:
-            raise ValueError("Error reading input file: " + str(e))
+            raise ValueError("Error reading input string: " + str(e))
 
         # Tokenize all non-empty lines.
         tokens = []
-        for line in input_lines:
+        for line in all_lines:
             line = line.strip()
             if line:
                 tokens.extend(line.split())

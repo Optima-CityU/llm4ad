@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.equitable_partitioning_problem_co_bench.template import template_program, task_description
 
 __all__ = ['EPPEvaluationCB']
@@ -31,16 +31,20 @@ class EPPEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Equitable partitioning problem")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,13 +61,13 @@ class EPPEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
-        Reads an input file where each non-empty line represents an individual with space-separated binary attributes.
-        In case the input file contains multiple cases (separated by one or more blank lines), this function will
+        Reads input string content where each non-empty line represents an individual with space-separated binary attributes.
+        In case the input string contains multiple cases (separated by one or more blank lines), this function will
         separate them into distinct cases.
         Parameters:
-            input_path (str): The file path to the input data.
+            input_string (str): The string content with the input data.
         Returns:
             list: A list of dictionaries. Each dictionary represents one case with the key 'data' mapping to a 2D list
                   (matrix) of binary attributes (0 or 1). For example:
@@ -73,18 +77,17 @@ class EPPEvaluationCB(Evaluation):
                       ...
                   ]
         Raises:
-            Exception: If the file cannot be read, or if any line is invalid, contains non-integer tokens,
+            Exception: If the string cannot be read, or if any line is invalid, contains non-integer tokens,
                        tokens not in {0, 1}, or if any row has an inconsistent number of attributes.
         """
         try:
-            with open(input_path, 'r') as f:
-                raw_lines = f.readlines()
+            all_lines = [line.strip() for line in input_string.split('\n')]
         except Exception as e:
-            raise Exception("Error reading input file: " + str(e))
+            raise Exception("Error reading input string: " + str(e))
 
         cases = []
         current_case = []
-        for line_no, line in enumerate(raw_lines, start=1):
+        for line_no, line in enumerate(all_lines, start=1):
             stripped = line.strip()
             # A blank line indicates a separator between cases.
             if not stripped:

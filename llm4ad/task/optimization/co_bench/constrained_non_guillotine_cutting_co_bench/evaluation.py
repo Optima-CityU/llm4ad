@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.constrained_non_guillotine_cutting_co_bench.template import template_program, task_description
 
 __all__ = ['CNCEvaluationCB']
@@ -31,16 +31,20 @@ class CNCEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Constrained non-guillotine cutting")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,10 +61,10 @@ class CNCEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
         Loads input data from a text file and returns a list of test case dictionaries.
-        The input file format:
+        The input format:
           - First line: integer T (number of test cases)
           - For each test case:
               * A line with integer m (number of pieces)
@@ -79,19 +83,18 @@ class CNCEvaluationCB(Evaluation):
                     'value': int
         """
         test_cases = []
-        with open(input_path, 'r') as f:
-            lines = [line.strip() for line in f if line.strip()]
+        all_lines = [line.strip() for line in input_string.split('\n')]
 
         idx = 0
-        T = int(lines[idx])
+        T = int(all_lines[idx])
         idx += 1
         for _ in range(T):
-            if idx >= len(lines):
+            if idx >= len(all_lines):
                 raise ValueError("Insufficient data for the expected number of test cases.")
-            m = int(lines[idx])
+            m = int(all_lines[idx])
             idx += 1
 
-            stock_dims = list(map(int, lines[idx].split()))
+            stock_dims = list(map(int, all_lines[idx].split()))
             if len(stock_dims) != 2:
                 raise ValueError("Invalid stock dimensions format.")
             stock_length, stock_width = stock_dims
@@ -99,7 +102,7 @@ class CNCEvaluationCB(Evaluation):
 
             pieces = []
             for _ in range(m):
-                piece_data = list(map(int, lines[idx].split()))
+                piece_data = list(map(int, all_lines[idx].split()))
                 if len(piece_data) != 5:
                     raise ValueError("Invalid piece data format.")
                 pieces.append({

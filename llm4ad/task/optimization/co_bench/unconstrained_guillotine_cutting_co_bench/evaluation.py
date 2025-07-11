@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.unconstrained_guillotine_cutting_co_bench.template import template_program, task_description
 
 __all__ = ['UGCEvaluationCB']
@@ -31,16 +31,20 @@ class UGCEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Unconstrained guillotine cutting")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,10 +61,10 @@ class UGCEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
         Loads one or more problem cases from the input file.
-        The input file is expected to contain one or more cases.
+        The input is expected to contain one or more cases.
         Each case has the following format:
           - Line 1: An integer m (number of pieces).
           - Line 2: Two integers: stock_width and stock_height.
@@ -75,9 +79,7 @@ class UGCEvaluationCB(Evaluation):
                 - "stock_height" (int): height of the stock rectangle.
                 - "pieces" (dict): mapping from piece_id (1-indexed) to a dict with keys 'l', 'w', 'value'.
         """
-        with open(input_path, 'r') as fin:
-            # Read all non-empty lines (strip whitespace)
-            lines = [line.strip() for line in fin if line.strip() != ""]
+        lines = [line.strip() for line in input_string.split('\n') if line.strip() != '']
 
         cases = []
         idx = 0
@@ -123,7 +125,7 @@ class UGCEvaluationCB(Evaluation):
                 "stock_width": stock_width,
                 "stock_height": stock_height,
                 "pieces": pieces,
-                "allow_rotation": input_path.endswith('r.txt'),
+                "allow_rotation": False,  # Default value since we can't determine from string
             }
             cases.append(case)
 

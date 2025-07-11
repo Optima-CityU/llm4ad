@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.flow_shop_scheduling_co_bench.template import template_program, task_description
 
 __all__ = ['FSSEvaluationCB']
@@ -31,16 +31,20 @@ class FSSEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Flow shop scheduling")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,7 +61,7 @@ class FSSEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, file_path):
+    def load_data(self, input_string):
         """
         Reads a file containing multiple test cases for the flow shop scheduling problem.
         The file format:
@@ -73,24 +77,23 @@ class FSSEvaluationCB(Evaluation):
           - "lower_bound" (int)
         """
         test_cases = []
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
+        all_lines = [line.strip() for line in input_string.split('\n')]
 
         i = 0
-        while i < len(lines):
-            line = lines[i].strip()
+        while i < len(all_lines):
+            line = all_lines[i].strip()
             # Look for the header line indicating a new test case.
             if line.startswith("number of jobs"):
                 # Skip to the line with the five numbers.
                 i += 1
-                while i < len(lines) and lines[i].strip() == "":
+                while i < len(all_lines) and all_lines[i].strip() == "":
                     i += 1
-                if i >= len(lines):
+                if i >= len(all_lines):
                     break
                 # The header values line (n, m, seed, upper_bound, lower_bound)
-                header_tokens = lines[i].strip().split()
+                header_tokens = all_lines[i].strip().split()
                 if len(header_tokens) < 5:
-                    raise ValueError(f"Expected at least 5 numbers in header, got: {lines[i].strip()}")
+                    raise ValueError(f"Expected at least 5 numbers in header, got: {all_lines[i].strip()}")
                 n = int(header_tokens[0])
                 m = int(header_tokens[1])
                 # initial seed is ignored
@@ -99,10 +102,10 @@ class FSSEvaluationCB(Evaluation):
                 i += 1
 
                 # Skip empty lines until we find the processing times label.
-                while i < len(lines) and lines[i].strip() == "":
+                while i < len(all_lines) and all_lines[i].strip() == "":
                     i += 1
                 # Expect a line that starts with "processing times"
-                if i < len(lines) and lines[i].strip().lower().startswith("processing times"):
+                if i < len(all_lines) and all_lines[i].strip().lower().startswith("processing times"):
                     i += 1
                 else:
                     raise ValueError("Expected 'processing times' line not found.")
@@ -110,14 +113,14 @@ class FSSEvaluationCB(Evaluation):
                 # Read m lines containing the processing times (each line should have n integers)
                 machine_times = []
                 for _ in range(m):
-                    while i < len(lines) and lines[i].strip() == "":
+                    while i < len(all_lines) and all_lines[i].strip() == "":
                         i += 1
-                    if i >= len(lines):
+                    if i >= len(all_lines):
                         raise ValueError("Unexpected end of file while reading processing times.")
-                    row_tokens = lines[i].strip().split()
+                    row_tokens = all_lines[i].strip().split()
                     if len(row_tokens) != n:
                         raise ValueError(
-                            f"Expected {n} numbers in processing times line, got {len(row_tokens)} in line: {lines[i].strip()}")
+                            f"Expected {n} numbers in processing times line, got {len(row_tokens)} in line: {all_lines[i].strip()}")
                     row = [int(token) for token in row_tokens]
                     machine_times.append(row)
                     i += 1

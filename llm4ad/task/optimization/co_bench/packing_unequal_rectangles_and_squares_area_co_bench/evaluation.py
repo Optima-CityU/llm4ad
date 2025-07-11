@@ -1,11 +1,11 @@
 
 from __future__ import annotations
 
-import os
 import math
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.packing_unequal_rectangles_and_squares_area_co_bench.template import template_program, task_description
 
 __all__ = ['PURSAEvaluationCB']
@@ -32,16 +32,20 @@ class PURSAEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Packing unequal rectangles and squares area")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -58,9 +62,9 @@ class PURSAEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
-        Reads an input file that may contain multiple cases for the packing problem.
+        Reads input string content that may contain multiple cases for the packing problem.
         Each case is formatted as follows:
           - A header line with four values: n, cx, cy, R
               n   : number of items (rectangles or squares)
@@ -78,9 +82,7 @@ class PURSAEvaluationCB(Evaluation):
              - 'items': list of tuples, where each tuple is (L, W) for the respective item.
         """
         cases = []
-        with open(input_path, 'r') as f:
-            # Read all non-empty lines
-            lines = [line.strip() for line in f if line.strip() != '']
+        lines = [line.strip() for line in input_string.split('\n') if line.strip() != '']
 
         i = 0
         while i < len(lines):

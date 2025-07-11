@@ -4,9 +4,7 @@ from __future__ import annotations
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
-from llm4ad.task.optimization.co_bench.aircraft_landing_co_bench.ins import airland12, airland8, airland11
-from llm4ad.task.optimization.co_bench.aircraft_landing_co_bench.ins import airland2, airland13, airland3, airland10, \
-    airland7, airland9, airland1, airland5, airland6, airland4
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.aircraft_landing_co_bench.template import template_program, task_description
 
 __all__ = ['ALEvaluationCB']
@@ -34,28 +32,53 @@ class ALEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        # get all ins from airland1.py to airland13.py
-        self._datasets = [airland1.ins, airland2.ins, airland3.ins, airland4.ins, airland5.ins,
-                          airland6.ins, airland7.ins, airland8.ins, airland9.ins, airland10.ins,
-                          airland11.ins, airland12.ins, airland13.ins]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Aircraft landing")
+        self._datasets = {}
+        for i in range(1, 14):  # airland1 to airland13
+            filename = f"airland{i}.txt"
+            if filename in dataset:
+                # Join all text rows into a single string
+                text_content = '\n'.join([row['text'] for row in dataset[filename]])
+                self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
-            ins_cases.append(self.load_data(ins, case_id))
+        
+        # Define runway configurations for each dataset (corresponds to airland1-13)
+        runway_configs = [[1, 2, 3],
+                         [1, 2, 3],
+                         [1, 2, 3],
+                         [1, 2, 3, 4],
+                         [1, 2, 3, 4],
+                         [1, 2, 3],
+                         [1, 2],
+                         [1, 2, 3],
+                         [1, 2, 3, 4],
+                         [1, 2, 3, 4, 5],
+                         [1, 2, 3, 4, 5],
+                         [1, 2, 3, 4, 5],
+                         [1, 2, 3, 4, 5]]
+        
+        for case_id, ins in enumerate(self._datasets.values()):
+            base_case = self.load_data(ins)
+            # Create variations with different runway configurations
+            for num_runways in runway_configs[case_id]:
+                case_with_runways = base_case.copy()
+                case_with_runways['num_runways'] = num_runways
+                ins_cases.append(case_with_runways)
 
         penalties = []
         try:
-            for i in ins_cases:
-                for j in i:
-                    schedule = eva(j['num_planes'], j['num_runways'], j['freeze_time'], j['planes'], j['separation'])
-                    penalty = self.eval_func(num_planes=j['num_planes'], num_runways=j['num_runways'],
-                                             freeze_time=j['freeze_time'], separation=j['separation'], planes=j['planes'],
-                                             schedule=schedule['schedule'])
-                    penalties.append(penalty)
+            for case in ins_cases:
+                schedule = eva(case['num_planes'], case['num_runways'], case['freeze_time'], case['planes'], case['separation'])
+                penalty = self.eval_func(num_planes=case['num_planes'], num_runways=case['num_runways'],
+                                         freeze_time=case['freeze_time'], separation=case['separation'], planes=case['planes'],
+                                         schedule=schedule['schedule'])
+                penalties.append(penalty)
 
             return -np.mean(penalties)
 
@@ -63,10 +86,10 @@ class ALEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_str, case_id):
+    def load_data(self, input_str):
         """
-        Reads the aircraft landing scheduling problem instance(s) from a file.
-        The file may contain one or more cases. Each case has the following format:
+        Reads the aircraft landing scheduling problem instance from a string.
+        The string contains a single case with the following format:
             Line 1: <num_planes> <freeze_time>
             For each plane (i = 1, …, num_planes):
                 - A line with 6 numbers:
@@ -75,105 +98,78 @@ class ALEvaluationCB(Evaluation):
                 - One or more subsequent lines containing exactly num_planes separation times.
                   (Separation times for plane i with respect to planes 1..num_planes. They may span multiple lines.)
         Returns:
-            A list of dictionaries, where each dictionary contains the keys:
+            A dictionary containing the keys:
                 - "num_planes"  : int
                 - "freeze_time" : float
                 - "planes"      : list of dicts (one per plane)
                 - "separation"  : list of lists of floats
         """
-        cases = []
-        # try:
-        #     with open(input_str, "r") as f:
-        #         # Read all non-empty lines.
-        #         all_lines = [line.strip() for line in f if line.strip()]
-        # except Exception as e:
-        #     raise RuntimeError(f"Error reading input file '{input_str}': {e}")
-
         all_lines = input_str.split("\n")
         all_lines = [line.strip() for line in all_lines if line.strip()]
 
         idx = 0
         total_lines = len(all_lines)
-        while idx < total_lines:
-            # Parse the first line of a case: num_planes and freeze_time.
-            try:
-                tokens = all_lines[idx].split()
-                num_planes = int(tokens[0])
-                freeze_time = float(tokens[1])
-            except Exception as e:
-                raise ValueError(f"Error parsing case header at line {idx + 1}: {e}")
+        
+        # Parse the first line: num_planes and freeze_time.
+        try:
+            tokens = all_lines[idx].split()
+            num_planes = int(tokens[0])
+            freeze_time = float(tokens[1])
+        except Exception as e:
+            raise ValueError(f"Error parsing case header at line {idx + 1}: {e}")
+        idx += 1
+
+        planes = []
+        separation = []
+
+        for plane_index in range(num_planes):
+            if idx >= total_lines:
+                raise ValueError(f"Insufficient lines for plane {plane_index + 1} parameters.")
+            params_tokens = all_lines[idx].split()
             idx += 1
+            if len(params_tokens) < 6:
+                raise ValueError(f"Plane {plane_index + 1}: Expected 6 parameters, got {len(params_tokens)}.")
+            try:
+                appearance = float(params_tokens[0])
+                earliest = float(params_tokens[1])
+                target = float(params_tokens[2])
+                latest = float(params_tokens[3])
+                penalty_early = float(params_tokens[4])
+                penalty_late = float(params_tokens[5])
+            except Exception as e:
+                raise ValueError(f"Plane {plane_index + 1}: Error converting parameters: {e}")
 
-            planes = []
-            separation = []
+            planes.append({
+                "appearance": appearance,
+                "earliest": earliest,
+                "target": target,
+                "latest": latest,
+                "penalty_early": penalty_early,
+                "penalty_late": penalty_late
+            })
 
-            for plane_index in range(num_planes):
+            # Read exactly num_planes separation times (may span multiple lines)
+            sep_tokens = []
+            while len(sep_tokens) < num_planes:
                 if idx >= total_lines:
-                    raise ValueError(f"Insufficient lines for plane {plane_index + 1} parameters.")
-                params_tokens = all_lines[idx].split()
+                    raise ValueError(f"Not enough lines to read separation times for plane {plane_index + 1}.")
+                sep_tokens.extend(all_lines[idx].split())
                 idx += 1
-                if len(params_tokens) < 6:
-                    raise ValueError(f"Plane {plane_index + 1}: Expected 6 parameters, got {len(params_tokens)}.")
-                try:
-                    appearance = float(params_tokens[0])
-                    earliest = float(params_tokens[1])
-                    target = float(params_tokens[2])
-                    latest = float(params_tokens[3])
-                    penalty_early = float(params_tokens[4])
-                    penalty_late = float(params_tokens[5])
-                except Exception as e:
-                    raise ValueError(f"Plane {plane_index + 1}: Error converting parameters: {e}")
+            # In case more tokens were read than needed:
+            sep_tokens = sep_tokens[:num_planes]
+            try:
+                sep_times = [float(token) for token in sep_tokens]
+            except Exception as e:
+                raise ValueError(f"Plane {plane_index + 1}: Error converting separation times: {e}")
+            separation.append(sep_times)
 
-                planes.append({
-                    "appearance": appearance,
-                    "earliest": earliest,
-                    "target": target,
-                    "latest": latest,
-                    "penalty_early": penalty_early,
-                    "penalty_late": penalty_late
-                })
-
-                # Read exactly num_planes separation times (may span multiple lines)
-                sep_tokens = []
-                while len(sep_tokens) < num_planes:
-                    if idx >= total_lines:
-                        raise ValueError(f"Not enough lines to read separation times for plane {plane_index + 1}.")
-                    sep_tokens.extend(all_lines[idx].split())
-                    idx += 1
-                # In case more tokens were read than needed:
-                sep_tokens = sep_tokens[:num_planes]
-                try:
-                    sep_times = [float(token) for token in sep_tokens]
-                except Exception as e:
-                    raise ValueError(f"Plane {plane_index + 1}: Error converting separation times: {e}")
-                separation.append(sep_times)
-
-            # Append the parsed case as a dictionary.
-            runway = [[1, 2, 3],
-                      [1, 2, 3],
-                      [1, 2, 3],
-                      [1, 2, 3, 4],
-                      [1, 2, 3, 4],
-                      [1, 2, 3],
-                      [1, 2],
-                      [1, 2, 3],
-                      [1, 2, 3, 4],
-                      [1, 2, 3, 4, 5],
-                      [1, 2, 3, 4, 5],
-                      [1, 2, 3, 4, 5],
-                      [1, 2, 3, 4, 5],
-                      ]
-            # case_id = int(input_filename.replace('.txt', '').split('airland')[-1]) - 1
-            for num_runways in runway[case_id]:
-                case_data = {
-                    "num_planes": num_planes,
-                    "num_runways": num_runways,
-                    "freeze_time": freeze_time,
-                    "planes": planes,
-                    "separation": separation,
-                }
-                cases.append(case_data)
-        return cases
+        # Return a single case dictionary (without num_runways, as that will be added later)
+        return {
+            "num_planes": num_planes,
+            "freeze_time": freeze_time,
+            "planes": planes,
+            "separation": separation,
+        }
 
     def eval_func(self, **kwargs):
         """

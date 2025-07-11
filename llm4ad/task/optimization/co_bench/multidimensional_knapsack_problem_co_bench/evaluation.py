@@ -1,10 +1,9 @@
-
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.multidimensional_knapsack_problem_co_bench.template import template_program, task_description
 
 __all__ = ['MKPEvaluationCB']
@@ -31,16 +30,20 @@ class MKPEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Multidimensional knapsack problem")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -85,12 +88,11 @@ class MKPEvaluationCB(Evaluation):
           If the instance file also provides an optimum value, it is stored under key 'opt'.
         """
         cases = []
-        with open(input_path, 'r') as f:
-            lines = f.readlines()
+        all_lines = [line.strip() for line in input_string.split('\n')]
 
         # Remove comments (anything after '//') and extra whitespace.
         cleaned_lines = []
-        for line in lines:
+        for line in all_lines:
             line = line.split("//")[0]
             line = line.strip()
             if line:
@@ -188,29 +190,21 @@ class MKPEvaluationCB(Evaluation):
 
         return cases
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
-        Loads multidimensional knapsack problem instances from a text file.
-        Expected file format:
-          - The first token is an integer K: the number of test cases.
-          - For each test case:
-              * Three numbers: n (number of decision variables), m (number of constraints), opt (optimal/best-known objective, unused).
-              * Exactly n profit coefficients.
-              * For each of the m constraints: exactly n coefficients (one row per constraint).
-              * Exactly m right-hand side values.
-        Returns:
-          A list of dictionaries, one per test case, where each dictionary has the keys:
-            - 'n': int, number of decision variables.
-            - 'm': int, number of constraints.
+        Reads the input string and returns a list of test cases.
+        Each case is represented as a dictionary containing:
+            - 'n': number of decision variables.
+            - 'm': number of constraints.
             - 'p': list of floats, profit coefficients.
             - 'r': list of m lists of floats, constraint coefficients.
             - 'b': list of floats, right-hand side values.
         """
-        if 'mknap2' in input_path:
-            return self.load_data2(input_path)
+        # Simple check for mknap2 format - for now, use default format
+        # if 'mknap2' in input_path:
+        #     return self.load_data2(input_path)
 
-        with open(input_path, 'r') as f:
-            tokens = f.read().split()
+        tokens = input_string.split()
 
         token_index = 0
         try:

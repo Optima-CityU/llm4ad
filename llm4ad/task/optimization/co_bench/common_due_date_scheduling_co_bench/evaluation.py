@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.common_due_date_scheduling_co_bench.template import template_program, task_description
 
 __all__ = ['CDDSEvaluationCB']
@@ -31,16 +31,20 @@ class CDDSEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Common due date scheduling")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,13 +61,13 @@ class CDDSEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
         Reads the input file and returns a list of cases.
         Each case is represented as a dictionary containing:
              - 'jobs': a list of tuples (p, a, b) for each job.
              - 'h': a float parameter for due date computation (default set to 0.6).
-        The input file format:
+        The input format:
              • The first token is an integer T indicating the number of cases.
              • For each case:
                    – The first integer is n, the number of jobs.
@@ -73,8 +77,7 @@ class CDDSEvaluationCB(Evaluation):
         """
         cases = []
         try:
-            with open(input_path, 'r') as f:
-                tokens = f.read().strip().split()
+            tokens = input_string.strip().split()
         except Exception as e:
             raise ValueError(f"Error reading input file: {e}")
 

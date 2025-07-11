@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.crew_scheduling_co_bench.template import template_program, task_description
 
 __all__ = ['CSchedulingEvaluationCB']
@@ -31,16 +31,20 @@ class CSchedulingEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Crew scheduling")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,9 +61,9 @@ class CSchedulingEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
-        Loads input data from a provided text file path. This function supports multiple cases.
+        Loads input data from a provided text string. This function supports multiple cases.
         The input file format for each case is as follows:
           - The first line contains two numbers: the number of tasks (N) and the maximum allowed duty time (time_limit).
           - The next N lines contain two numbers each: start time and finish time for each task (tasks are indexed from 1 to N).
@@ -71,16 +75,14 @@ class CSchedulingEvaluationCB(Evaluation):
         """
         cases = []
         try:
-            with open(input_path, 'r') as f:
-                # Read all lines
-                raw_lines = [line.rstrip() for line in f]
+            lines = [line.strip() for line in input_string.split('\n') if line.strip() != '']
         except Exception as e:
-            raise ValueError("Failed to read input file: " + str(e))
+            raise ValueError("Failed to read input string: " + str(e))
 
         # Split lines into blocks separated by blank lines.
         blocks = []
         current_block = []
-        for line in raw_lines:
+        for line in lines:
             if line.strip() == "":
                 if current_block:
                     blocks.append(current_block)
@@ -136,25 +138,30 @@ class CSchedulingEvaluationCB(Evaluation):
 
             case_data = {"N": N, "time_limit": time_limit, "tasks": tasks, "arcs": arcs}
 
-            crew_number = {
-                'csp50.txt': [27, 32],
-                'csp100.txt': [44, 49],
-                'csp150.txt': [69, 74],
-                'csp200.txt': [93, 98],
-                'csp250.txt': [108, 113],
-                'csp300.txt': [130, 134],
-                'csp350.txt': [144, 149],
-                'csp400.txt': [159, 164],
-                'csp450.txt': [182, 187],
-                'csp500.txt': [204, 209],
-            }
-            for case in crew_number.keys():
-                if case in input_path:
-                    for k in range(crew_number[case][0], crew_number[case][1]):
-                        cases.append(case_data | {'K': k})
-                    break
-
-            # cases.append(case_data)
+            # Determine K range based on problem size (N)
+            if N <= 50:
+                k_range = range(27, 32)
+            elif N <= 100:
+                k_range = range(44, 49)
+            elif N <= 150:
+                k_range = range(69, 74)
+            elif N <= 200:
+                k_range = range(93, 98)
+            elif N <= 250:
+                k_range = range(108, 113)
+            elif N <= 300:
+                k_range = range(130, 134)
+            elif N <= 350:
+                k_range = range(144, 149)
+            elif N <= 400:
+                k_range = range(159, 164)
+            elif N <= 450:
+                k_range = range(182, 187)
+            else:  # N <= 500 or larger
+                k_range = range(204, 209)
+            
+            for k in k_range:
+                cases.append(case_data | {'K': k})
 
         return cases
 

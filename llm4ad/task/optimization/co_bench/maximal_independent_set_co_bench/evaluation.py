@@ -1,12 +1,12 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
 import pickle
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_pickle
 from llm4ad.task.optimization.co_bench.maximal_independent_set_co_bench.template import template_program, task_description
 
 __all__ = ['MISEvaluationCB']
@@ -33,25 +33,39 @@ class MISEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins/er_test'))  # er_large_test, er_test
-        self._datasets = [os.path.join(path, 'ins/er_test', e) for e in ins_files_path if e.endswith('.gpickle')]
+        # Load datasets from Hugging Face as pickle files
+        pickle_data = load_subdir_as_pickle("CO-Bench/CO-Bench", "Maximal independent set", 
+                                          include_subdirs=("er_test", "er_large_test"))
+        
+        # Organize datasets by filename (dict format preserves filenames)
+        self._datasets = {}
+        for subdir_name, graphs in pickle_data.items():
+            for filename, graph in graphs.items():
+                # Use filename as key, store metadata with graph as value
+                dataset_entry = {
+                    'name': filename.replace('.gpickle', ''),
+                    'subdir': subdir_name,
+                    'graph': graph,
+                    'filename': filename
+                }
+                self._datasets[filename] = dataset_entry
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
-        ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
-            ins_cases.append(self.load_data(ins))
-
         fitness_list = []
         try:
-            for i in ins_cases:
-                for j in i:
-                    result = eva(j['graph'])
-                    fitness = self.eval_func(name=j['name'], graph=j['graph'], mis_nodes=result['mis_nodes'], mis_size=len(result['mis_nodes']))
-                    fitness_list.append(fitness)
+            for dataset_entry in self._datasets.values():
+                # Each dataset entry already contains the graph and metadata
+                result = eva(dataset_entry['graph'])
+                fitness = self.eval_func(
+                    name=dataset_entry['name'], 
+                    graph=dataset_entry['graph'], 
+                    mis_nodes=result['mis_nodes'], 
+                    mis_size=len(result['mis_nodes'])
+                )
+                fitness_list.append(fitness)
 
             return np.mean(fitness_list)
 
@@ -59,71 +73,20 @@ class MISEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, file_path):
+    def load_data(self, input_string):
         """
-        Load test data for MIS problem from a single file or directory.
+        Load data method for compatibility with comprehensive testing.
+        Since MIS task loads pickle files directly in __init__, this method
+        returns cases from the dictionary format.
+        
         Args:
-            file_path (str or pathlib.Path): Path to a .gpickle file or directory containing .gpickle files
+            input_string: Dataset content (not used, but required for interface)
+            
         Returns:
-            list: A list of dictionaries, each containing a test case with graph data
+            list: List of dataset entries for compatibility
         """
-        file_path = pathlib.Path(file_path)
-        test_cases = []
-
-        # Function to process a single graph file
-        def process_graph_file(graph_path):
-            try:
-                # Manual loading using pickle if nx.read_gpickle is not available
-                with open(graph_path, "rb") as f:
-                    G = pickle.load(f)
-
-                # Extract basic graph information
-                num_nodes = G.number_of_nodes()
-                num_edges = G.number_of_edges()
-
-                # Check if the graph is weighted and has labels
-                is_weighted = False
-                has_labels = False
-
-                if G.number_of_nodes() > 0:
-                    # Sample a node to check attributes
-                    sample_node = next(iter(G.nodes(data=True)))
-                    is_weighted = 'weight' in sample_node[1]
-                    has_labels = 'label' in sample_node[1]
-
-                # Create a test case dictionary
-                test_case = {
-                    'name': graph_path.stem,
-                }
-
-                # If the graph is labeled, extract the MIS solution and remove the labels from the graph
-                if has_labels:
-                    # Remove the label information from all nodes so the solver cannot use it
-                    for node in G.nodes():
-                        if 'label' in G.nodes[node]:
-                            del G.nodes[node]['label']
-
-                test_case['graph'] = G
-
-                return test_case
-
-            except Exception as e:
-                raise Exception(f"Error loading graph from {graph_path}: {e}")
-
-        # Handle single file or directory
-        if file_path.is_file() and file_path.suffix == '.gpickle':
-            test_case = process_graph_file(file_path)
-            if test_case:
-                test_cases.append(test_case)
-        elif file_path.is_dir():
-            for graph_path in file_path.rglob("*.gpickle"):
-                test_case = process_graph_file(graph_path)
-                if test_case:
-                    test_cases.append(test_case)
-        else:
-            raise Exception(f"Invalid file path: {file_path}. Expected .gpickle file or directory.")
-
-        return test_cases
+        # Return all dataset entries as a list for compatibility with testing
+        return list(self._datasets.values())
 
     def eval_func(self, **kwargs):
         """

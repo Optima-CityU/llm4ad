@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.assignment_problem_co_bench.template import template_program, task_description
 
 __all__ = ['APEvaluationCB']
@@ -32,16 +32,20 @@ class APEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Assignment problem")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -58,18 +62,18 @@ class APEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, file_path):
+    def load_data(self, input_string):
         """
-        Reads an input file and separates it into multiple cases for the assignment problem.
-        The input file is expected to contain one or more cases. Each case has the following format:
+        Reads input string content and separates it into multiple cases for the assignment problem.
+        The input is expected to contain one or more cases. Each case has the following format:
           - The first non-empty line of the case is a single integer n (the number of items/agents).
           - The remaining tokens in the case provide the cost information. This can be in one of two formats:
               1. Dense Format: Exactly n*n numeric tokens (row-major order).
               2. Sparse Format: A sequence of tokens in groups of three: (i, j, cost). Any (i,j)
                  not specified is assigned a cost equal to 1000 times the maximum provided cost in that row.
-        Cases in the file are separated by one or more blank lines.
+        Cases in the input are separated by one or more blank lines.
         Parameters:
-          file_path (str): The path to the input TXT file.
+          input_string (str): The input content as string.
         Returns:
           A list of dictionaries, each containing:
               - "n": int, the number of items.
@@ -77,8 +81,7 @@ class APEvaluationCB(Evaluation):
         """
         import math
 
-        with open(file_path, 'r') as f:
-            all_lines = [line.rstrip() for line in f]
+        all_lines = [line.rstrip() for line in input_string.split('\n')]
 
         # Group lines into cases using blank lines as delimiters.
         cases = []

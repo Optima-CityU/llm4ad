@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.euclidean_steiner_problem_co_bench.template import template_program, task_description
 
 __all__ = ['ESPEvaluationCB']
@@ -31,16 +31,20 @@ class ESPEvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Euclidean Steiner problem")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -57,9 +61,9 @@ class ESPEvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, input_path):
+    def load_data(self, input_string):
         """
-        Reads the input TXT file and returns a list of individual test problems.
+        Reads the input string and returns a list of individual test problems.
         The input file may contain one or more cases. Each case is expected to follow the format:
            Line 1: An integer m representing the number of test problems in the case.
            For each test problem:
@@ -70,31 +74,30 @@ class ESPEvaluationCB(Evaluation):
              - "points": a list of (x, y) tuples representing the terminals.
         The function ignores empty lines and supports multiple cases concatenated in one file.
         """
-        with open(input_path, 'r') as f:
-            lines = [line.strip() for line in f if line.strip() != ""]
+        all_lines = [line.strip() for line in input_string.split('\n')]
 
         problems = []
         idx = 0
-        while idx < len(lines):
+        while idx < len(all_lines):
             # Read number of test problems for this case.
             try:
-                m = int(lines[idx])
+                m = int(all_lines[idx])
             except Exception as e:
                 raise ValueError(f"Expected an integer for number of test problems at line {idx + 1}: {e}")
             idx += 1
             for i in range(m):
-                if idx >= len(lines):
+                if idx >= len(all_lines):
                     raise ValueError(f"Insufficient data for test problem {i + 1} in a case.")
                 try:
-                    n = int(lines[idx])
+                    n = int(all_lines[idx])
                 except Exception as e:
                     raise ValueError(f"Expected an integer for number of points at line {idx + 1}: {e}")
                 idx += 1
                 pts = []
                 for j in range(n):
-                    if idx >= len(lines):
+                    if idx >= len(all_lines):
                         raise ValueError(f"Insufficient point data for test problem {i + 1}, point {j + 1}.")
-                    parts = lines[idx].split()
+                    parts = all_lines[idx].split()
                     if len(parts) < 2:
                         raise ValueError(f"Test problem {i + 1}: point {j + 1} does not have two coordinates.")
                     try:

@@ -1,11 +1,11 @@
 
 from __future__ import annotations
 
-import os
 import ast
 from typing import Any
 import numpy as np
 from llm4ad.base import Evaluation
+from llm4ad.task.optimization.co_bench.utils import load_subdir_as_text
 from llm4ad.task.optimization.co_bench.vehicle_routing_period_routing_co_bench.template import template_program, task_description
 
 __all__ = ['VRPREvaluationCB']
@@ -32,16 +32,20 @@ class VRPREvaluationCB(Evaluation):
             timeout_seconds=timeout_seconds
         )
 
-        path = os.path.dirname(os.path.abspath(__file__))
-        ins_files_path = os.listdir(os.path.join(path, 'ins'))
-        self._datasets = [os.path.join(path, 'ins', e) for e in ins_files_path if e.endswith('.txt')]
+        # Load datasets from Hugging Face
+        dataset = load_subdir_as_text("CO-Bench/CO-Bench", "Vehicle routing: period routing")
+        self._datasets = {}
+        for filename in dataset:
+            # Join all text rows into a single string
+            text_content = '\n'.join([row['text'] for row in dataset[filename]])
+            self._datasets[filename] = text_content
 
     def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
         return self.evaluate(callable_func)
 
     def evaluate(self, eva: callable) -> float | None:
         ins_cases = []
-        for case_id, ins in enumerate(self._datasets):
+        for case_id, ins in enumerate(self._datasets.values()):
             ins_cases.append(self.load_data(ins))
 
         fitness_list = []
@@ -58,7 +62,7 @@ class VRPREvaluationCB(Evaluation):
             print(e)
             return None
 
-    def load_data(self, file_path):
+    def load_data(self, input_string):
         """
         Reads a period vehicle routing problem file and returns a dictionary with the problem data.
         The file is expected to have the following format:
@@ -72,7 +76,7 @@ class VRPREvaluationCB(Evaluation):
                             e.g., depot line: 0 30 40 0
                                   customer line: 1 37 52 7 [[1, 0], [0, 1]]
         Parameters:
-          file_path (str): The path to the input TXT file.
+          input_string (str): The input content as string.
         Returns:
           A dictionary with keys:
               - "period_length" (int)
@@ -89,8 +93,7 @@ class VRPREvaluationCB(Evaluation):
         """
 
         # Read file and filter out any empty lines.
-        with open(file_path, 'r') as f:
-            all_lines = [line.strip() for line in f if line.strip() != '']
+        all_lines = [line.strip() for line in input_string.split('\n')]
 
         # Check that we have at least 3 lines for headers.
         if len(all_lines) < 3:
