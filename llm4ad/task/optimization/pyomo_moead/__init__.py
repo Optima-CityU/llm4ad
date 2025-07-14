@@ -1,2 +1,2 @@
-from .evaluation import MOEAD_PYOMO_Evaluator
+from .evaluation import MOEAD_PYOMO_Evaluation
 from .template import template_program
