@@ -1,3 +1,23 @@
+# References:
+#   - Sun, W., Feng, S., Li, S., & Yang, Y. Co-bench: Benchmarking language
+#       model agents in algorithm search for combinatorial optimization.
+#       arXiv preprint arXiv:2504.04310 (2025).
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
 
 from __future__ import annotations
 
@@ -14,7 +34,7 @@ class ALEvaluationCB(Evaluation):
     """Evaluator for aircraft landing."""
 
     def __init__(self,
-                 timeout_seconds=50,
+                 timeout_seconds=60,
                  **kwargs):
 
         """
