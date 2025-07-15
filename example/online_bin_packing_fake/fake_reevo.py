@@ -30,10 +30,7 @@ class FakeLLM(LLM):
         return fake_thought + rand_func
 
 
-llm = HttpsApi(host='api.bltcy.ai',
-               key='sk-bHPqNOd8SBG90snNEd3906E9Bf5a48C5A8D0164034EbAb9c',
-               model='gpt-4o-mini')
-print(llm.draw_sample('hello'))
+llm = FakeLLM()
 
 if __name__ == '__main__':
     # llm = FakeLLM()

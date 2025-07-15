@@ -170,7 +170,7 @@ class FunSearch:
                         function.score = score
                         function.sample_time = avg_time_for_each_sample
                         function.evaluate_time = eval_time
-                        self._profiler.register_function(function)
+                        self._profiler.register_function(function, program=str(program))
                         if isinstance(self._profiler, FunSearchProfiler):
                             self._profiler.register_program_db(self._database)
             except KeyboardInterrupt:
@@ -199,7 +199,7 @@ class FunSearch:
             if self._profiler:
                 self._function_to_evolve.score = score
                 self._function_to_evolve.evaluate_time = eval_time
-                self._profiler.register_function(self._function_to_evolve)
+                self._profiler.register_function(self._function_to_evolve, program=str(self._template_program))
 
         # start sampling using multiple threads
         for t in self._sampler_threads:
@@ -211,3 +211,5 @@ class FunSearch:
 
         if self._profiler is not None:
             self._profiler.finish()
+
+        self._sampler.llm.close()

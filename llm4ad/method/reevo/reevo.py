@@ -1,11 +1,9 @@
-# Module Name: EoH
+# Module Name: ReEvo
 # Last Revision: 2025/2/16
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 #
 # Reference:
-#   - Fei Liu, Tong Xialiang, Mingxuan Yuan, Xi Lin, Fu Luo, Zhenkun Wang, Zhichao Lu, and Qingfu Zhang.
-#       "Evolution of Heuristics: Towards Efficient Automatic Algorithm Design Using Large Language Model."
-#       In Forty-first International Conference on Machine Learning (ICML). 2024.
+#
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
@@ -31,28 +29,25 @@ import traceback
 from threading import Thread
 from typing import Optional, Literal
 
+from torch.utils.data import Sampler
+
 from .population import Population
-from .profiler import EoHProfiler
-from .prompt import EoHPrompt
-from .sampler import EoHSampler
+from .profiler import ReEvoProfiler
+from .prompt import ReEvoPrompt
 from ...base import (
-    Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
+    Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator, SampleTrimmer
 )
 from ...tools.profiler import ProfilerBase
 
 
-class EoH:
+class ReEvo:
     def __init__(self,
                  llm: LLM,
                  evaluation: Evaluation,
                  profiler: ProfilerBase = None,
-                 max_generations: Optional[int] = 10,
                  max_sample_nums: Optional[int] = 100,
-                 pop_size: Optional[int] = 5,
-                 selection_num=2,
-                 use_e2_operator: bool = True,
-                 use_m1_operator: bool = True,
-                 use_m2_operator: bool = True,
+                 pop_size: Optional[int] = 20,
+                 mutation_rate: float = 0.5,
                  num_samplers: int = 1,
                  num_evaluators: int = 1,
                  *,
@@ -60,20 +55,16 @@ class EoH:
                  debug_mode: bool = False,
                  multi_thread_or_process_eval: Literal['thread', 'process'] = 'thread',
                  **kwargs):
-        """Evolutionary of Heuristics.
+        """Reflective Evolution.
         Args:
             llm             : an instance of 'llm4ad.base.LLM', which provides the way to query LLM.
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
-            profiler        : an instance of 'llm4ad.method.eoh.EoHProfiler'. If you do not want to use it, you can pass a 'None'.
+            profiler        : an instance of 'llm4ad.method.reevo.ReEvoProfiler'. If you do not want to use it, you can pass a 'None'.
             max_generations : terminate after evolving 'max_generations' generations or reach 'max_sample_nums',
                               pass 'None' to disable this termination condition.
             max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations',
                               pass 'None' to disable this termination condition.
             pop_size        : population size, if set to 'None', EoH will automatically adjust this parameter.
-            selection_num   : number of selected individuals while crossover.
-            use_e2_operator : if use e2 operator.
-            use_m1_operator : if use m1 operator.
-            use_m2_operator : if use m2 operator.
             resume_mode     : in resume_mode, randsample will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
             debug_mode      : if set to True, we will print detailed information.
             multi_thread_or_process_eval: use 'concurrent.futures.ThreadPoolExecutor' or 'concurrent.futures.ProcessPoolExecutor' for the usage of
@@ -81,17 +72,13 @@ class EoH:
                 setting this parameter to 'process' will faster than 'thread'. However, I do not sure if this happens on all platform so I set the default to 'thread'.
                 Please note that there is one case that cannot utilize multi-core CPU: if you set 'safe_evaluate' argument in 'evaluator' to 'False',
                 and you set this argument to 'thread'.
-            **kwargs                    : some args pass to 'llm4ad.base.SecureEvaluator'. Such as 'fork_proc'.
+            **kwargs        : some args pass to 'llm4ad.base.SecureEvaluator'. Such as 'fork_proc'.
         """
         self._template_program_str = evaluation.template_program
         self._task_description_str = evaluation.task_description
-        self._max_generations = max_generations
         self._max_sample_nums = max_sample_nums
         self._pop_size = pop_size
-        self._selection_num = selection_num
-        self._use_e2_operator = use_e2_operator
-        self._use_m1_operator = use_m1_operator
-        self._use_m2_operator = use_m2_operator
+        self._mutation_rate = mutation_rate
 
         # samplers and evaluators
         self._num_samplers = num_samplers
@@ -100,29 +87,21 @@ class EoH:
         self._debug_mode = debug_mode
         llm.debug_mode = debug_mode
         self._multi_thread_or_process_eval = multi_thread_or_process_eval
+        self._MAX_SHORT_TERM_REFLECTION_PROMPT = 5
 
         # function to be evolved
         self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
         self._function_to_evolve_name: str = self._function_to_evolve.name
         self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
 
-        # adjust population size
-        self._adjust_pop_size()
-
         # population, sampler, and evaluator
         self._population = Population(pop_size=self._pop_size)
-        self._sampler = EoHSampler(llm, self._template_program_str)
+        self._sampler = SampleTrimmer(llm)
         self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
 
         # statistics
         self._tot_sample_nums = 0
-
-        # reset _initial_sample_nums_max
-        self._initial_sample_nums_max = min(
-            self._max_sample_nums,
-            2 * self._pop_size
-        )
 
         # multi-thread executor for evaluation
         assert multi_thread_or_process_eval in ['thread', 'process']
@@ -139,33 +118,6 @@ class EoH:
         if profiler is not None:
             self._profiler.record_parameters(llm, evaluation, self)  # ZL: necessary
 
-    def _adjust_pop_size(self):
-        # adjust population size
-        if self._max_sample_nums >= 10000:
-            if self._pop_size is None:
-                self._pop_size = 40
-            elif abs(self._pop_size - 40) > 20:
-                print(f'Warning: population size {self._pop_size} '
-                      f'is not suitable, please reset it to 40.')
-        elif self._max_sample_nums >= 1000:
-            if self._pop_size is None:
-                self._pop_size = 20
-            elif abs(self._pop_size - 20) > 10:
-                print(f'Warning: population size {self._pop_size} '
-                      f'is not suitable, please reset it to 20.')
-        elif self._max_sample_nums >= 200:
-            if self._pop_size is None:
-                self._pop_size = 10
-            elif abs(self._pop_size - 10) > 5:
-                print(f'Warning: population size {self._pop_size} '
-                      f'is not suitable, please reset it to 10.')
-        else:
-            if self._pop_size is None:
-                self._pop_size = 5
-            elif abs(self._pop_size - 5) > 5:
-                print(f'Warning: population size {self._pop_size} '
-                      f'is not suitable, please reset it to 5.')
-
     def _sample_evaluate_register(self, prompt):
         """Perform following steps:
         1. Sample an algorithm using the given prompt.
@@ -173,9 +125,10 @@ class EoH:
         3. Add the function to the population and register it to the profiler.
         """
         sample_start = time.time()
-        thought, func = self._sampler.get_thought_and_function(prompt)
+        func = self._sampler.draw_sample(prompt)
+        func = SampleTrimmer.sample_to_function(func, self._template_program)
         sample_time = time.time() - sample_start
-        if thought is None or func is None:
+        if func is None:
             return
         # convert to Program instance
         program = TextFunctionProgramConverter.function_to_program(func, self._template_program)
@@ -189,69 +142,93 @@ class EoH:
         # register to profiler
         func.score = score
         func.evaluate_time = eval_time
-        func.algorithm = thought
         func.sample_time = sample_time
         if self._profiler is not None:
             self._profiler.register_function(func, program=str(program))
-            if isinstance(self._profiler, EoHProfiler):
+            if isinstance(self._profiler, ReEvoProfiler):
                 self._profiler.register_population(self._population)
-            self._tot_sample_nums += 1
+        self._tot_sample_nums += 1
 
         # register to the population
         self._population.register_function(func)
 
-    def _continue_loop(self) -> bool:
-        if self._max_generations is None and self._max_sample_nums is None:
-            return True
-        elif self._max_generations is not None and self._max_sample_nums is None:
-            return self._population.generation < self._max_generations
-        elif self._max_generations is None and self._max_sample_nums is not None:
-            return self._tot_sample_nums < self._max_sample_nums
-        else:
-            return (self._population.generation < self._max_generations
-                    and self._tot_sample_nums < self._max_sample_nums)
+    def _iteratively_ga_evolve(self):
+        short_term_reflection_prompts = []
+        long_term_reflection_prompts = []
+        crx_samples_generated_by_cur_thread = 0
 
-    def _iteratively_use_eoh_operator(self):
-        while self._continue_loop():
+        while self._tot_sample_nums < self._max_sample_nums:
             try:
-                # get a new func using e1
-                indivs = [self._population.selection() for _ in range(self._selection_num)]
-                prompt = EoHPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
+                # short term reflection
+                indivs = [self._population.selection() for _ in range(2)]
+                short_term_reflection_prompt = ReEvoPrompt.get_short_term_reflection_prompt(self._task_description_str,
+                                                                                            indivs)
+
                 if self._debug_mode:
-                    print(f'E1 Prompt: {prompt}')
-                self._sample_evaluate_register(prompt)
-                if not self._continue_loop():
+                    print(f'--------------------------------------------------------------------')
+                    print(f'Short Term Reflection Prompt-1: \n{short_term_reflection_prompt}')
+                    print(f'--------------------------------------------------------------------\n\n')
+
+                short_term_reflection_prompt = self._sampler.llm.draw_sample(short_term_reflection_prompt)
+                short_term_reflection_prompts.append(short_term_reflection_prompt)
+
+                if self._debug_mode:
+                    print(f'--------------------------------------------------------------------')
+                    print(f'Short Term Reflection Prompt-2: \n{short_term_reflection_prompt}')
+                    print(f'--------------------------------------------------------------------\n\n')
+
+                # crossover
+                crx_prompt = ReEvoPrompt.get_crossover_prompt(self._task_description_str, short_term_reflection_prompt,
+                                                              indivs)
+
+                if self._debug_mode:
+                    print(f'--------------------------------------------------------------------')
+                    print(f'Crossover Prompt: \n{crx_prompt}')
+                    print(f'--------------------------------------------------------------------\n\n')
+
+                self._sample_evaluate_register(crx_prompt)
+                crx_samples_generated_by_cur_thread += 1
+                if self._tot_sample_nums >= self._max_sample_nums:
                     break
 
-                # get a new func using e2
-                if self._use_e2_operator:
-                    indivs = [self._population.selection() for _ in range(self._selection_num)]
-                    prompt = EoHPrompt.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
+                # assume that current thread has generated a population of algorithms
+                if crx_samples_generated_by_cur_thread > 0 and crx_samples_generated_by_cur_thread % self._pop_size == 0:
+                    # long term reflection
+                    long_term_reflection_prompt = ReEvoPrompt.get_long_term_reflection_prompt(
+                        self._task_description_str,
+                        long_term_reflection_prompts[-1] if long_term_reflection_prompts else '',
+                        short_term_reflection_prompts[-self._MAX_SHORT_TERM_REFLECTION_PROMPT:],
+                    )
+
                     if self._debug_mode:
-                        print(f'E2 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
-                    if not self._continue_loop():
+                        print(f'--------------------------------------------------------------------')
+                        print(f'Long Term Reflection Prompt-1: \n{long_term_reflection_prompt}')
+                        print(f'--------------------------------------------------------------------\n\n')
+
+                    long_term_reflection_prompt = self._sampler.llm.draw_sample(long_term_reflection_prompt)
+                    long_term_reflection_prompts.append(long_term_reflection_prompt)
+
+                    if self._debug_mode:
+                        print(f'--------------------------------------------------------------------')
+                        print(f'Long Term Reflection Prompt-2: \n{long_term_reflection_prompt}')
+                        print(f'--------------------------------------------------------------------\n\n')
+
+                    # mutation
+                    for _ in range(int(self._mutation_rate * self._pop_size)):
+                        func = self._population.elite_function
+                        mutation_prompt = ReEvoPrompt.get_elist_mutation_prompt(self._task_description_str,
+                                                                                long_term_reflection_prompt, func)
+
+                        if self._debug_mode:
+                            print(f'--------------------------------------------------------------------')
+                            print(f'Elite mutation: \n{mutation_prompt}')
+                            print(f'--------------------------------------------------------------------\n\n')
+
+                        self._sample_evaluate_register(mutation_prompt)
+
+                    if self._tot_sample_nums >= self._max_sample_nums:
                         break
 
-                # get a new func using m1
-                if self._use_m1_operator:
-                    indiv = self._population.selection()
-                    prompt = EoHPrompt.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M1 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
-                    if not self._continue_loop():
-                        break
-
-                # get a new func using m2
-                if self._use_m2_operator:
-                    indiv = self._population.selection()
-                    prompt = EoHPrompt.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M2 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
-                    if not self._continue_loop():
-                        break
             except KeyboardInterrupt:
                 break
             except Exception as e:
@@ -273,14 +250,10 @@ class EoH:
         while self._population.generation == 0:
             try:
                 # get a new func using i1
-                prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
+                prompt = ReEvoPrompt.get_pop_init_prompt(self._task_description_str, self._function_to_evolve)
+                if self._debug_mode:
+                    print(f'Init Prompt: {prompt}')
                 self._sample_evaluate_register(prompt)
-                if self._tot_sample_nums >= self._initial_sample_nums_max:
-                    # print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
-                    print(
-                        f'Note: During initialization, EoH gets {len(self._population) + len(self._population._next_gen_pop)} algorithms '
-                        f'after {self._initial_sample_nums_max} trails.')
-                    break
             except Exception:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -305,17 +278,9 @@ class EoH:
         if not self._resume_mode:
             # do initialization
             self._multi_threaded_sampling(self._iteratively_init_population)
-            self._population.survival()
-            # terminate searching if
-            if len(self._population) < self._selection_num:
-                print(
-                    f'The search is terminated since EoH unable to obtain {self._selection_num} feasible algorithms during initialization. '
-                    f'Please increase the `initial_sample_nums_max` argument (currently {self._initial_sample_nums_max}). '
-                    f'Please also check your evaluation implementation and LLM implementation.')
-                return
 
         # evolutionary search
-        self._multi_threaded_sampling(self._iteratively_use_eoh_operator)
+        self._multi_threaded_sampling(self._iteratively_ga_evolve)
 
         # finish
         if self._profiler is not None:
