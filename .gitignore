@@ -13,6 +13,7 @@
 GUI/outputs
 **/wandb
 **/test
+**/gui_test.py
 /.gitattributes
 ysy_main.py
 llm4ad.egg-info/top_level.txt
