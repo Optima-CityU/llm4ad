@@ -8,6 +8,7 @@
 **/*.log
 **/*.out
 **/logs
+**/.idea
 **/samples*
 **/sample2pkl.py
 GUI/outputs
