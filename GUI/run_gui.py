@@ -194,7 +194,12 @@ def show_problem_parameters(problem_name):
 
     problem_param_frame['text'] = f"{problem_name}"
 
-    required_parameters, value_type, default_value = get_required_parameters(path=f"../llm4ad/task/{objectives_var.get()}/{problem_name}/paras.yaml")
+    if problem_name[-8:] == 'co_bench':
+        yaml_file_path = f"../llm4ad/task/{objectives_var.get()}/co_bench/{problem_name}/paras.yaml"
+    else:
+        yaml_file_path = f"../llm4ad/task/{objectives_var.get()}/{problem_name}/paras.yaml"
+
+    required_parameters, value_type, default_value = get_required_parameters(path=yaml_file_path)
     problem_para_value_type_list = value_type
     problem_para_value_name_list = required_parameters
     for i in range(len(required_parameters)):
@@ -269,10 +274,17 @@ def problem_type_select(event=None):
     path = f'../llm4ad/task/{objectives_var.get()}'
     for name in os.listdir(path):
         full_path = os.path.join(path, name)
-        if os.path.isdir(full_path) and name != '__pycache__' and name != '_data':
+        if os.path.isdir(full_path) and name != '__pycache__' and name != '_data' and name != 'co_bench':
             problem_listbox.insert(tk.END, name)
         if name in default_problem:
             default_problem_index = problem_listbox.size() - 1
+
+    if objectives_var.get() == 'optimization':
+        path = f'../llm4ad/task/{objectives_var.get()}/co_bench'  # todo
+        for name in os.listdir(path):
+            full_path = os.path.join(path, name)
+            if os.path.isdir(full_path) and name != '__pycache__' and name != '_data':
+                problem_listbox.insert(tk.END, name)
 
     problem_listbox.bind("<<ListboxSelect>>", on_problem_select)
     on_problem_select(problem_listbox.select_set(default_problem_index))
