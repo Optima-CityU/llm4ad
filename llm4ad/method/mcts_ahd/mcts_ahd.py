@@ -219,6 +219,7 @@ class MCTS_AHD:
 
     def expand(self, mcts: MCTS, cur_node: MCTSNode, option: str):
         nodes_set = self._population.population
+        origin_size_nodes = len(nodes_set)
         if option == 's1':
             path_set = []
             now = copy.deepcopy(cur_node)
@@ -257,7 +258,7 @@ class MCTS_AHD:
         else:
             assert False, 'Invalid option!'
 
-        if self._population.population[0] == None:
+        if origin_size_nodes == len(self._population):
             print(f"Timeout emerge, no expanding with action {option}.")
             return nodes_set
 
@@ -281,61 +282,6 @@ class MCTS_AHD:
             cur_node.children_info.append(self._population.population[0])
             mcts.backpropagate(nownode)
         return nodes_set
-
-    def _iteratively_use_ma_operator(self):
-        while self._continue_loop():
-            try:
-                # get a new func using e1
-                indivs = [self._population.selection() for _ in range(self._selection_num)]
-                prompt = MAPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
-                if self._debug_mode:
-                    print(f'E1 Prompt: {prompt}')
-                self._sample_evaluate_register(prompt)
-                if not self._continue_loop():
-                    break
-
-                # get a new func using e2
-                if self._use_e2_operator:
-                    indivs = [self._population.selection() for _ in range(self._selection_num)]
-                    prompt = MAPrompt.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'E2 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
-                    if not self._continue_loop():
-                        break
-
-                # get a new func using m1
-                if self._use_m1_operator:
-                    indiv = self._population.selection()
-                    prompt = MAPrompt.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M1 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
-                    if not self._continue_loop():
-                        break
-
-                # get a new func using m2
-                if self._use_m2_operator:
-                    indiv = self._population.selection()
-                    prompt = MAPrompt.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M2 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
-                    if not self._continue_loop():
-                        break
-            except KeyboardInterrupt:
-                break
-            except Exception as e:
-                if self._debug_mode:
-                    traceback.print_exc()
-                    exit()
-                continue
-
-        # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
-            pass
 
     def _iteratively_init_population_root(self):
         """Let a thread repeat {sample -> evaluate -> register to population}
@@ -425,7 +371,39 @@ class MCTS_AHD:
                 return
 
         # evolutionary search
-        self._multi_threaded_sampling(self._iteratively_use_ma_operator)
+        while self.eval_times < self.fe_max:
+            print(f"Current performances of MCTS nodes: {mcts.rank_list}")
+            # print([len(node.subtree) for node in mcts.root.children])
+            cur_node = mcts.root
+            while len(cur_node.children) > 0 and cur_node.depth < mcts.max_depth:
+                uct_scores = [mcts.uct(node, max(1 - self.eval_times / self.fe_max, 0)) for node in cur_node.children]
+                selected_pair_idx = uct_scores.index(max(uct_scores))
+                if int((cur_node.visits) ** mcts.alpha) > len(cur_node.children):
+                    if cur_node == mcts.root:
+                        op = 'e1'
+                        nodes_set = self.expand(mcts, cur_node, nodes_set, op)
+                    else:
+                        # i = random.randint(1, n_op - 1)
+                        i = 1
+                        op = self.operators[i]
+                        nodes_set = self.expand(mcts, cur_node, nodes_set, op)
+                cur_node = cur_node.children[selected_pair_idx]
+            for i in range(n_op):
+                op = self.operators[i]
+                print(f"Iter: {self.eval_times}/{self.fe_max} OP: {op}", end="|")
+                op_w = self.operator_weights[i]
+                for j in range(op_w):
+                    nodes_set = self.expand(mcts, cur_node, nodes_set, op)
+                assert len(cur_node.children) == len(cur_node.children_info)
+            # Save population to a file
+            filename = self.output_path + "population_generation_" + str(self.eval_times) + ".json"
+            with open(filename, 'w') as f:
+                json.dump(nodes_set, f, indent=5)
+
+            # Save the best one to a file
+            filename = self.output_path + "best_population_generation_" + str(self.eval_times) + ".json"
+            with open(filename, 'w') as f:
+                json.dump(nodes_set[0], f, indent=5)
 
         # finish
         if self._profiler is not None:
