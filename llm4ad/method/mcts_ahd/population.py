@@ -38,6 +38,10 @@ class Population:
         return self._population
 
     @property
+    def next_gen_pop(self):
+        return self._next_gen_pop
+
+    @property
     def generation(self):
         return self._generation
 

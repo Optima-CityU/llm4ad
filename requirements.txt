@@ -16,4 +16,4 @@ gym
 datasets
 huggingface_hub
 networkx
-
+langchain_ollama
