@@ -10,7 +10,7 @@ from ...base import *
 
 
 class Population:
-    def __init__(self, pop_size, generation=0, pop: List[Function] | Population | None = None):
+    def __init__(self, init_pop_size, pop_size, generation=0, pop: List[Function] | Population | None = None):
         if pop is None:
             self._population = []
         elif isinstance(pop, list):
@@ -19,6 +19,7 @@ class Population:
             self._population = pop._population
 
         self._pop_size = pop_size
+        self._init_pop_size = init_pop_size
         self._lock = Lock()
         self._next_gen_pop = []
         self._generation = generation
@@ -40,7 +41,10 @@ class Population:
     def generation(self):
         return self._generation
 
-    def survival(self):
+    def survival(self, pop_size: int=None):
+        if pop_size is None:
+            pop_size = self._pop_size
+
         pop = self._population + self._next_gen_pop
 
         # keep unique algorithms
@@ -52,11 +56,14 @@ class Population:
                 unique_objectives.append(individual.score)
 
         pop = sorted(unique_pop, key=lambda f: f.score, reverse=True)  # better sort
-        self._population = pop[:self._pop_size]
+        self._population = pop[:pop_size]
         self._next_gen_pop = []
         self._generation += 1
 
-    def survival_s1(self):
+    def survival_s1(self, pop_size: int=None):
+        if pop_size is None:
+            pop_size = self._pop_size
+
         pop = self._population + self._next_gen_pop
 
         # keep unique algorithms
@@ -68,7 +75,7 @@ class Population:
                 unique_objectives.append(individual.score)
 
         pop = sorted(unique_pop, key=lambda f: f.score, reverse=False)  # worst sort
-        self._population = pop[:self._pop_size]
+        self._population = pop[:pop_size]
         self._next_gen_pop = []
         self._generation += 1
 
@@ -94,8 +101,10 @@ class Population:
         finally:
             self._lock.release()
 
-    def has_duplicate_function(self, func: str | Function) -> bool:
-        for f in self._population:
+    def has_duplicate_function(self, func: str | Function, pop:List[Function]=None) -> bool:
+        if pop is None:
+            pop = self._population
+        for f in pop:
             if str(f) == str(func) or func.score == f.score:
                 return True
         for f in self._next_gen_pop:
@@ -103,15 +112,20 @@ class Population:
                 return True
         return False
 
-    def selection(self) -> Function:
-        funcs = [f for f in self._population if not math.isinf(f.score)]
+    def selection(self, pop:List[Function]=None) -> Function:
+        if pop is None:
+            pop = self._population
+        funcs = [f for f in pop if not math.isinf(f.score)]
         func = sorted(funcs, key=lambda f: f.score, reverse=True)
         p = [1 / (r + 1 + len(func)) for r in range(len(func))]
         p = np.array(p)
         p = p / np.sum(p)
         return np.random.choice(func, p=p)
 
-    def selection_e1(self, m:int=2):
-        probs = [1 for i in range(len(self._population))]
-        parents = random.choices(self._population, weights=probs, k=m)
-        return parents
+    def selection_e1(self, pop:List[Function]=None) -> Function:
+        if pop is None:
+            pop = self._population
+        funcs = [f for f in pop if not math.isinf(f.score)]
+        func = sorted(funcs, key=lambda f: f.score, reverse=True)
+        probs = [1 for _ in range(len(pop))]
+        return np.random.choice(func, p=probs)

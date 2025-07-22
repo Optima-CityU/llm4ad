@@ -3,11 +3,11 @@ from __future__ import annotations
 import re
 from typing import Tuple, List, Dict
 
-from .prompt import EoHPrompt
+from .prompt import MAPrompt
 from ...base import LLM, SampleTrimmer, Function, Program
 
 
-class EoHSampler:
+class MASampler:
     def __init__(self, llm: LLM, template_program: str | Program):
         self.llm = llm
         self._template_program = template_program

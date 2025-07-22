@@ -25,9 +25,6 @@ class MCTSNode:
     def add_child(self, child_node: MCTSNode):
         self.children.append(child_node)
 
-    def __repr__(self):
-        return f"MCTSNode(answer={self.answer}, Q={self.Q:.2f}, visits={self.visits})"
-
 
 class MCTS:
     def __init__(self, root_answer):
