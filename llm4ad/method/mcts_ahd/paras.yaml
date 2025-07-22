@@ -1,0 +1,6 @@
+name: MCTS_AHD
+max_generations: 10
+max_sample_nums: 40
+pop_size: 10
+init_pop_size: 4
+num_evaluators: 4
