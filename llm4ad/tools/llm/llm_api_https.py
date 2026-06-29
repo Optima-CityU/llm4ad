@@ -121,8 +121,9 @@ class HttpsApi(LLM):
                 data = res.read().decode('utf-8')
                 data = json.loads(data)
 
-                # Extract content from the standard response format
-                response = data['choices'][0]['message']['content']
+                # Extract content from the standard response format (compatible with DeepSeek-R1)
+                message = data['choices'][0]['message']
+                response = message.get('content') or message.get('reasoning_content', '')
                 # Reset error counter on success
                 if self.debug_mode:
                     self._cumulative_error = 0
