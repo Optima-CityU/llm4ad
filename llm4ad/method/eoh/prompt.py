@@ -72,7 +72,7 @@ Do not give additional explanations.'''
         prompt_content = f'''{task_prompt}
 I have {len(indivs)} existing algorithms with their codes as follows:
 {indivs_prompt}
-Please help me create a new algorithm that has a totally different form from the given ones but can be motivated from them.
+Please help me create a new algorithm that has a different form from the given ones but can be motivated from them.
 1. Firstly, identify the common backbone idea in the provided algorithms. 
 2. Secondly, based on the backbone idea describe your new algorithm in one sentence. The description must be inside within boxed {{}}.
 3. Thirdly, implement the following Python function:
@@ -112,7 +112,7 @@ I have one algorithm with its code as follows. Algorithm description:
 {indi.algorithm}
 Code:
 {str(indi)}
-Please identify the main algorithm parameters and assist me in creating a new algorithm that has a different parameter settings of the score function provided.
+Please identify the main algorithm parameters and assist me in creating a new algorithm that has a different parameter settings.
 1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
 2. Next, implement the following Python function:
 {str(temp_func)}
