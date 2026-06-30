@@ -1,36 +1,53 @@
 import os
 import importlib
-import inspect
+import ast
 
 __all__ = []
+_LAZY_ATTRS = {}
 
 # Get the directory of the current package
 package_dir = os.path.dirname(__file__)
 
-# Iterate over all files in the package directory
-for filename in os.listdir(package_dir):
-    # Check if it is a Python file and not the __init__.py file
-    if filename.endswith('.py') and filename != '__init__.py':
+
+def _register_lazy_llm_classes():
+    for filename in os.listdir(package_dir):
+        if not filename.endswith('.py') or filename == '__init__.py':
+            continue
+
         module_name = filename[:-3]
+        module_path = f'.{module_name}'
+        file_path = os.path.join(package_dir, filename)
+
         try:
-            # Import the module (e.g., llm4ad.tools.llm.api)
-            module = importlib.import_module(f'.{module_name}', package=__name__)
-            
-            # Iterate over the attributes of the module
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-                
-                # Check if the attribute is a class defined in that module
-                if inspect.isclass(attr) and attr.__module__ == module.__name__:
-                    # Add the class to the package's globals
-                    globals()[attr_name] = attr
-                    # Add the class name to __all__ to be exported
-                    if attr_name not in __all__:
-                        __all__.append(attr_name)
-        except (ImportError, ModuleNotFoundError) as e:
-            # Optionally print a warning if a module cannot be imported
-            # print(f"Could not import module: {module_name}. Reason: {e}")
-            pass
+            with open(file_path, encoding='utf-8') as f:
+                tree = ast.parse(f.read(), filename=file_path)
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+
+        for node in tree.body:
+            if not isinstance(node, ast.ClassDef):
+                continue
+            _LAZY_ATTRS[node.name] = (module_path, node.name)
+            if node.name not in __all__:
+                __all__.append(node.name)
+
+
+_register_lazy_llm_classes()
+
+
+def __getattr__(name):
+    if name not in _LAZY_ATTRS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    module_name, attr_name = _LAZY_ATTRS[name]
+    module = importlib.import_module(module_name, package=__name__)
+    attr = getattr(module, attr_name)
+    globals()[name] = attr
+    return attr
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))
 
 def import_all_llm_classes_from_subfolders(root_directory):
     """

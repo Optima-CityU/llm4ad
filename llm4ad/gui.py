@@ -24,13 +24,24 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Add repo root to path to find llm4ad package
 
 import pytz
-import inspect
 import llm4ad
 
 
-# Dynamically import all usable classes from the 'llm4ad' package
-for module in [llm4ad.tools.llm, llm4ad.tools.profiler, llm4ad.task, llm4ad.method]:
-    globals().update({name: obj for name, obj in vars(module).items() if inspect.isclass(obj)})
+_CLASS_MODULES = (
+    llm4ad.tools.llm,
+    llm4ad.tools.profiler,
+    llm4ad.task,
+    llm4ad.method,
+)
+
+
+def _resolve_class(class_name: str):
+    for module in _CLASS_MODULES:
+        try:
+            return getattr(module, class_name)
+        except AttributeError:
+            continue
+    raise KeyError(f"Class {class_name!r} was not found in llm4ad.")
 
 
 def main_gui(llm: dict,
@@ -81,10 +92,10 @@ def main_gui(llm: dict,
         main_gui(llm_config, method_config, evaluation_config, profiler_config)
         """
 
-    profiler_case = globals()[profiler['name']]
-    llm_case = globals()[llm['name']]
-    method_case = globals()[method['name']]
-    eval_case = globals()[evaluation['name']]
+    profiler_case = _resolve_class(profiler['name'])
+    llm_case = _resolve_class(llm['name'])
+    method_case = _resolve_class(method['name'])
+    eval_case = _resolve_class(evaluation['name'])
 
     profiler = profiler_case(evaluation_name=evaluation['name'],
                              method_name=method['name'],

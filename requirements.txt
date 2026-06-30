@@ -1,22 +1,14 @@
+# Default dependencies for core usage, GUI, and common EoH examples such as TSP/OBP.
 numpy<2.0.0
-scipy
-numba
-requests
-openai
-tensorboard
-wandb
-pytz
-pandas
-pymoo
 matplotlib
+pytz
+tqdm
 ttkbootstrap
-codebleu
-tree-sitter-python==0.23
-gym
-gymnasium
-datasets
-huggingface_hub
-networkx
-llamea
-# langchain_ollama
-git+https://github.com/XAI-liacs/LLaMEA.git@main        #New method.
+
+# Optional dependencies are installed only when needed.
+# Examples:
+#   pip install ".[all]"
+#   pip install ".[machine-learning]"
+#   pip install ".[science-discovery]"
+#   pip install ".[partevo]"
+#   pip install ".[llamea]"

@@ -74,42 +74,68 @@ For more information, see the [contact list](https://github.com/Optima-CityU/LLM
 > [!Important]
 > The Python version **MUST** be larger or equal to Python 3.9, and less than Python 3.13.
 
-> [!Important]
-> If you are testing machine learning tasks or using GUI, please install gym via `pip install gym`. 
-> Please note that the gym version may be conflict with your own Python environment, please refer to gym's docs to obtain appropriate version.
+The default installation keeps dependencies small and includes the GUI dependency. Optional packages are only needed when you use specific methods, tasks, loggers, or LLM backends.
 
+**Install from PyPI**
 
-- Please refer to [requirements.txt](./requirements.txt)
+```bash
+$ pip install llm4ad
+```
 
-- Please install `numba` (if you want to use Numba accelerate)
+To install every optional dependency from PyPI:
 
-- Please install `tensorboard` (if you want to use a Tensorboard logger)
+```bash
+$ pip install "llm4ad[all]"
+```
 
-- Please install `wandb` (if you want to use wandb logger)
+**Install from source**
 
-- Please install `gym` (if you want to try **GUI**, and **Machine Learning** tasks)
-
-- Please install `pandas` (if you want to try **Science Discovery** tasks)
-
-- Please install all required packages in [requirements.txt](./requirements.txt) (if you want to use GUI)
-
-
-### Install LLM4AD locally
-
-We suggest to install and run LLM4AD in [conda](https://conda.io/projects/conda/en/latest/index.html) env with python>=3.9, <3.13
+Run these commands from the repository root, where `setup.py` is located:
 
 ```bash
 $ cd LLM4AD
 $ pip install .
 ```
 
-### Install LLM4AD using PiPy
-
-We suggest to install and run LLM4AD in [conda](https://conda.io/projects/conda/en/latest/index.html) env with python>=3.9, <3.13
+To install every optional dependency from a cloned repository:
 
 ```bash
-$ pip install llm4ad
+$ cd LLM4AD
+$ pip install ".[all]"
 ```
+
+Use `llm4ad[extra-name]` when installing from PyPI, and `.[extra-name]` when installing from a local clone. The `all` extra installs every optional dependency, including local-vLLM dependencies. If your platform cannot install vLLM, install only the smaller extras you need from the tables below.
+
+**Method optional dependencies**
+
+| Method | Extra packages |
+| --- | --- |
+| FunSearch | Local: `pip install ".[funsearch]"`<br>PyPI: `pip install "llm4ad[funsearch]"`<br>`scipy` |
+| MOEAD / NSGA2 | Local: `pip install ".[multi-objective]"`<br>PyPI: `pip install "llm4ad[multi-objective]"`<br>`pymoo` |
+| MEoH | Local: `pip install ".[meoh]"`<br>PyPI: `pip install "llm4ad[meoh]"`<br>`pymoo`, `codebleu`, `tree-sitter-python` |
+| PartEvo | Local: `pip install ".[partevo]"`<br>PyPI: `pip install "llm4ad[partevo]"`<br>`codebleu`, `tree-sitter-python`, `scikit-learn`, `seaborn`, `torch`, `transformers` |
+| LLaMEA | Local: `pip install ".[llamea]"`<br>PyPI: `pip install "llm4ad[llamea]"`<br>`llamea`, `ConfigSpace` |
+
+**Task optional dependencies**
+
+| Task | Extra packages |
+| --- | --- |
+| Machine-learning control tasks | Local: `pip install ".[machine-learning]"`<br>PyPI: `pip install "llm4ad[machine-learning]"`<br>`gymnasium[box2d]` |
+| Science-discovery tasks | Local: `pip install ".[science-discovery]"`<br>PyPI: `pip install "llm4ad[science-discovery]"`<br>`pandas`, `scipy`, `sympy` |
+| Pymoo MOEA/D task | Local: `pip install ".[pymoo-task]"`<br>PyPI: `pip install "llm4ad[pymoo-task]"`<br>`pymoo` |
+| Co-Bench tasks | Local: `pip install ".[co-bench]"`<br>PyPI: `pip install "llm4ad[co-bench]"`<br>`datasets`, `huggingface_hub`, `httpx`, `httpcore`, `networkx`, `scipy` |
+| TSP GLS 2O task | Local: `pip install ".[tsp-gls]"`<br>PyPI: `pip install "llm4ad[tsp-gls]"`<br>`numba`, `scipy` |
+
+**Tool optional dependencies**
+
+| Tool | Extra install |
+| --- | --- |
+| TensorBoard profiler | Local: `pip install ".[tensorboard]"`<br>PyPI: `pip install "llm4ad[tensorboard]"`<br>`torch`, `tensorboard` |
+| Weights & Biases profiler | Local: `pip install ".[wandb]"`<br>PyPI: `pip install "llm4ad[wandb]"`<br>`wandb` |
+| OpenAI backend | Local: `pip install ".[openai]"`<br>PyPI: `pip install "llm4ad[openai]"`<br>`openai` |
+| Local Ollama backend | Local: `pip install ".[local-ollama]"`<br>PyPI: `pip install "llm4ad[local-ollama]"`<br>`langchain-ollama` |
+| Local vLLM backend | Local: `pip install ".[local-vllm]"`<br>PyPI: `pip install "llm4ad[local-vllm]"`<br>`requests`, `psutil`, `torch`, `flask`, `flask-cors`, `transformers`, `vllm` |
+
 
 ## 💻 Example Usage
 
@@ -160,7 +186,7 @@ Check [Documents](https://llm4ad-doc.readthedocs.io/en/latest/index.html) for mo
 ### GUI usage:
 
 > [!Important]
-> Install all required packages in [requirements.txt](./requirements.txt) for GUI usage.
+> The GUI dependency is included in the default installation. If you run machine-learning tasks from the GUI, also install `pip install ".[machine-learning]"`.
 
 ```shell
 $ cd GUI

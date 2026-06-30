@@ -11,15 +11,9 @@ from llm4ad.method.eoh import EoH, EoHProfiler
 
 
 def main():
-    # llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
-    #                key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
-    #                model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
-    #                timeout=60)
-
-    llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
-                   model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
-                   timeout=120)
+    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                   model='xxx')  # your llm, e.g., 'gpt-3.5-turbo'; timeout defaults to 60
 
     task = CVRPEvaluation()
 

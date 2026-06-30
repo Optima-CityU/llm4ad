@@ -25,10 +25,10 @@ from typing import Optional, Literal
 from ...base import Function
 from .profile import ProfilerBase
 
-try:
+
+def _get_wandb():
     import wandb
-except:
-    pass
+    return wandb
 
 
 class WandBProfiler(ProfilerBase):
@@ -57,6 +57,8 @@ class WandBProfiler(ProfilerBase):
                          **wandb_init_kwargs)
 
         self._wandb_project_name = wandb_project_name
+        self._wandb = _get_wandb()
+        wandb = self._wandb
 
         if fork_proc == 'auto':
             # for MacOS and Linux
@@ -129,4 +131,4 @@ class WandBProfiler(ProfilerBase):
         )
 
     def finish(self):
-        wandb.finish()
+        self._wandb.finish()

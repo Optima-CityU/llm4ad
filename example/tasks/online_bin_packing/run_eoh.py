@@ -10,15 +10,9 @@ from llm4ad.tools.profiler import ProfilerBase
 
 def main():
 
-    # llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
-    #                key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
-    #                model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
-    #                timeout=60)
-
-    llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
-                   model='gemini-2.5-flash',  # your llm, e.g., gpt-4o-mini, deepseek-v3.2, qwen3.5-plus, gemini-2.5-flash
-                   timeout=120)
+    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                   model='xxx')  # your llm, e.g., 'gpt-3.5-turbo'; timeout defaults to 60
 
     task = OBPEvaluation()
 

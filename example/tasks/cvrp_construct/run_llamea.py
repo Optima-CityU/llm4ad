@@ -29,10 +29,9 @@ def main():
     #     raise RuntimeError(
     #         "Missing GOOGLE_API_KEY environment variable. Please export it first."
     #     )
-    llm = LlameaLLM(host='api.bltcy.top',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
-                   key='sk-xDTKC5OtOgzmi36ytMOIBLc5T04pFCRv2R6lcOalip8v2Pf9',  # your key, e.g., 'sk-abcdefghijklmn'
-                   model='gpt-4o-mini',  # your llm, e.g., 'gpt-3.5-turbo'
-                   timeout=60)
+    llm = LlameaLLM(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                    key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                    model='xxx')  # your llm, e.g., 'gpt-3.5-turbo'; timeout defaults to 60
 
 
     # --- 2. Define problem evaluator ---

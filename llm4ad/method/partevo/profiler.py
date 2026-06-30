@@ -31,11 +31,6 @@ from abc import ABC, abstractmethod
 from threading import Lock
 from typing import List, Dict, Optional
 
-try:
-    import wandb
-except:
-    pass
-
 # from .population import Population
 from ...base import Function
 from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
@@ -352,4 +347,4 @@ class EoHWandbProfiler(WandBProfiler, PartEvoProfiler):
             os.makedirs(self._ckpt_dir, exist_ok=True)
 
     def finish(self):
-        wandb.finish()
+        self._wandb.finish()

@@ -5,11 +5,6 @@ import os
 from threading import Lock
 from typing import List, Dict, Optional
 
-try:
-    import wandb
-except:
-    pass
-
 from .population import Population
 from ...base import Function
 from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
@@ -186,7 +181,7 @@ class ReEvoWandbProfiler(WandBProfiler, ReEvoProfiler):
             os.makedirs(self._ckpt_dir, exist_ok=True)
 
     def finish(self):
-        wandb.finish()
+        self._wandb.finish()
         filename = 'end.json'
         path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
 

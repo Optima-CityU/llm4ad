@@ -25,11 +25,11 @@ from typing import Optional
 from ...base import Function
 from .profile import ProfilerBase
 
-try:
+
+def _get_summary_writer():
     os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable TF onednn for better performance
     from torch.utils.tensorboard import SummaryWriter
-except:
-    pass
+    return SummaryWriter
 
 
 class TensorboardProfiler(ProfilerBase):
@@ -56,6 +56,7 @@ class TensorboardProfiler(ProfilerBase):
 
         # summary writer instance for Tensorboard
         if log_dir:
+            SummaryWriter = _get_summary_writer()
             self._writer = SummaryWriter(log_dir=self._log_dir)
 
 

@@ -1,36 +1,69 @@
 import os
 import importlib
-import inspect
+import ast
 
 __all__ = []
+_LAZY_ATTRS = {}
 
 # Get the directory of the current package
 package_dir = os.path.dirname(__file__)
 
-# Iterate over all subdirectories in the package directory
-for subdir_name in os.listdir(package_dir):
-    subdir_path = os.path.join(package_dir, subdir_name)
-    
-    # Check if it is a directory and not a special directory like __pycache__
-    if os.path.isdir(subdir_path) and subdir_name != '__pycache__':
+
+def _register_lazy_method_classes():
+    for subdir_name in os.listdir(package_dir):
+        subdir_path = os.path.join(package_dir, subdir_name)
+        init_path = os.path.join(subdir_path, '__init__.py')
+
+        if not os.path.isdir(subdir_path) or subdir_name == '__pycache__':
+            continue
+        if not os.path.exists(init_path):
+            continue
+
         try:
-            # Import the submodule (e.g., llm4ad.method.eoh)
-            submodule = importlib.import_module(f'.{subdir_name}', package=__name__)
-            
-            # Iterate over the attributes of the submodule
-            for attr_name in dir(submodule):
-                attr = getattr(submodule, attr_name)
-                
-                # Check if the attribute is a class defined in that submodule
-                if inspect.isclass(attr) and attr.__module__.startswith(submodule.__name__):
-                    # Add the class to the package's globals
-                    globals()[attr_name] = attr
-                    # Add the class name to __all__ to be exported
-                    if attr_name not in __all__:
-                        __all__.append(attr_name)
+            with open(init_path, encoding='utf-8') as f:
+                tree = ast.parse(f.read(), filename=init_path)
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+
+        for node in tree.body:
+            if not isinstance(node, ast.ImportFrom) or node.level != 1 or not node.module:
+                continue
+
+            module_name = f'.{subdir_name}.{node.module}'
+            for alias in node.names:
+                if alias.name == '*':
+                    continue
+                attr_name = alias.asname or alias.name
+                _LAZY_ATTRS.setdefault(attr_name, []).append((module_name, alias.name))
+                if attr_name not in __all__:
+                    __all__.append(attr_name)
+
+
+_register_lazy_method_classes()
+
+
+def __getattr__(name):
+    if name not in _LAZY_ATTRS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    last_error = None
+    for module_name, attr_name in reversed(_LAZY_ATTRS[name]):
+        try:
+            module = importlib.import_module(module_name, package=__name__)
+            attr = getattr(module, attr_name)
         except (ImportError, ModuleNotFoundError) as e:
-            # Optionally print a warning if a submodule cannot be imported
-            pass
+            last_error = e
+            continue
+        globals()[name] = attr
+        return attr
+
+    if last_error:
+        raise last_error
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))
 
 def import_all_method_classes_from_subfolders(root_directory: str):
     """
