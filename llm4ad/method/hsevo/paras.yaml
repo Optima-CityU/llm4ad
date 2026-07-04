@@ -1,0 +1,12 @@
+name: HSEvo
+max_sample_nums: 450
+pop_size: 10
+init_pop_size: 30
+mutation_rate: 0.5
+hm_size: 5
+hmcr: 0.7
+par: 0.5
+bandwidth: 0.2
+max_iter: 5
+num_samplers: 4
+num_evaluators: 4

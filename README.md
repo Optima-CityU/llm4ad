@@ -176,6 +176,7 @@ Check [GUI Introduction](https://llm4ad-doc.readthedocs.io/en/latest/getting_sta
 | Methods                           | Paper title                                                  |
 | --------------------------------- | ------------------------------------------------------------ |
 | **EoH**                           | [Evolution of Heuristics: Towards Efficient Automatic Algorithm Design Using Large Language Model](https://openreview.net/pdf?id=BwAkaxqiLB) (ICML 2024)<br>[Algorithm Evolution using Large Language Model](https://arxiv.org/abs/2311.15249) (Arxiv 2023, AEL, the early version of EoH) |
+| **HSEvo**                         | [HSEvo: Elevating Automatic Heuristic Design with Diversity-Driven Harmony Search and Genetic Algorithm Using LLMs](https://arxiv.org/abs/2412.14995) (AAAI 2025) |
 | **MEoH**                          | [Multi-objective Evolution of Heuristic Using Large Language Model](https://arxiv.org/abs/2409.16867) (AAAI 25) |
 | **FunSearch**                     | [Mathematical Discoveries from Program Search with Large Language Models](https://www.nature.com/articles/s41586-023-06924-6) (Nature 2024) |
 | **(1+1)-EPS** <br/>(HillClimbing) | [Understanding the Importance of Evolutionary Search in Automated Heuristic Design with Large Language Models](https://arxiv.org/abs/2407.10873) (PPSN 2024) |
