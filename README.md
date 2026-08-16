@@ -269,7 +269,7 @@ to contribute to the research area by delivering tools for LLM-based algorithm d
 
 ## :star: Star Trends
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Optima-CityU/llm4ad&type=Date)](https://star-history.com/#Optima-CityU/llm4ad&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=Optima-CityU/llm4ad&type=Date)](https://star-history.dera.page/#Optima-CityU/llm4ad&Date)
 
 ## ☎️ Contact
 
