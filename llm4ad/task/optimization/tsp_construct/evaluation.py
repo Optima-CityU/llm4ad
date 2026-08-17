@@ -74,24 +74,15 @@ class TSPEvaluation(Evaluation):
     def evaluate_program(self, program_str: str, callable_func: callable) -> Any | None:
         return self.evaluate(callable_func)
 
-    def tour_cost(self, instance, solution, problem_size):
+    def tour_cost(self, distance_matrix, solution, problem_size):
         cost = 0
         for j in range(problem_size - 1):
-            cost += np.linalg.norm(instance[int(solution[j])] - instance[int(solution[j + 1])])
-        cost += np.linalg.norm(instance[int(solution[-1])] - instance[int(solution[0])])
+            cost += distance_matrix[int(solution[j]), int(solution[j + 1])]
+        cost += distance_matrix[int(solution[-1]), int(solution[0])]
         return cost
 
-    def generate_neighborhood_matrix(self, instance):
-        instance = np.array(instance)
-        n = len(instance)
-        neighborhood_matrix = np.zeros((n, n), dtype=int)
-
-        for i in range(n):
-            distances = np.linalg.norm(instance[i] - instance, axis=1)
-            sorted_indices = np.argsort(distances)  # sort indices based on distances
-            neighborhood_matrix[i] = sorted_indices
-
-        return neighborhood_matrix
+    def generate_neighborhood_matrix(self, distance_matrix):
+        return np.argsort(distance_matrix, axis=1)
 
     def evaluate(self, eva: callable) -> float:
 
@@ -99,10 +90,10 @@ class TSPEvaluation(Evaluation):
         dis = np.ones(self.n_instance)
         n_ins = 0
 
-        for instance, distance_matrix in self._datasets:
+        for _, distance_matrix in self._datasets:
 
             # get neighborhood matrix
-            neighbor_matrix = self.generate_neighborhood_matrix(instance)
+            neighbor_matrix = self.generate_neighborhood_matrix(distance_matrix)
 
             destination_node = 0
 
@@ -136,7 +127,7 @@ class TSPEvaluation(Evaluation):
 
             route[self.problem_size - 1] = current_node
 
-            LLM_dis = self.tour_cost(instance, route, self.problem_size)
+            LLM_dis = self.tour_cost(distance_matrix, route, self.problem_size)
 
             dis[n_ins] = LLM_dis
 
