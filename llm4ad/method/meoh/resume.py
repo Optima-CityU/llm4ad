@@ -89,10 +89,10 @@ def _resume_pf(log_path: str, pf: MEoHProfiler, template_func):
         pf.register_function(f, resume_mode=True)
 
 
-def resume_meoh(meoh: MEoH):
+def resume_meoh(meoh: MEoH, path: str | None = None):
     meoh._resume_mode = True
     pf = meoh._profiler
-    log_path = pf._log_dir
+    log_path = pf._log_dir if path is None else path
     # resume program database
     pop = _resume_pop(log_path, meoh._pop_size)
     meoh._population = pop
